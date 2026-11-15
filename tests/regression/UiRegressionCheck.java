@@ -47,7 +47,7 @@ class UiRegressionCheck {
         ListPreferencesRegression.check();
         ScreenLayoutRegression.check();
         NetworkParsingRegression.check();
-        LanHeaderRegression.check();
+        LanWorldsProviderRegression.check();
         System.out.println("UI_REGRESSION_OK Minecraft=" + args[0] + " protocol=" + SharedConstants.getProtocolVersion()
             + " left=" + MouseButtons.left() + " right=" + MouseButtons.right());
     }

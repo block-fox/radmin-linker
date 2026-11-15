@@ -1,90 +1,49 @@
 # RadminLAN
 
-RadminLAN 是一个 Fabric 客户端模组，目前支持 Minecraft 1.21.11、26.2、26.3，后续可能移植（neo）forge。用于在 Minecraft 内查看 Radmin LAN/VPN 状态、网络和用户，并集中管理局域网房间。
+Fabric 客户端模组，在 Minecraft 内管理 Windows Radmin VPN 的网络和用户。支持 Minecraft **26.3、26.2、1.21.11**。
 
-当前版本：`0.2.0`，完整更新见 [CHANGELOG.md](CHANGELOG.md)。
+当前开发版本：**0.3.0**。更新记录见 [CHANGELOG.md](CHANGELOG.md)。
 
-## 已实现
+## 安装与联动
 
-- 在多人游戏界面添加可配置位置的 RadminLAN 入口。
-- 管理界面包含网络、用户、已屏蔽和设置四个页签，局域网房间整合在原版多人游戏列表中。
-- 网络和用户支持八种查看方式、排序、过滤和多选；查看指定网络用户时自动应用网络过滤。
-- 顶部可直接修改用户名和切换 Radmin 电源，关闭电源前需确认。
-- 通过 Windows Radmin 控制管道读取服务状态、网络、用户和延迟信息；配置了 CLI 路径时可回退到 CLI。
-- 使用独立线程执行 Radmin 查询和 LAN 多播发现，不阻塞 Minecraft 渲染线程。
-- 持续订阅读取实际延迟，使用信号图标显示连接状态，悬停图标查看简洁信息。
-- 可切换自动刷新并调整 1–60 秒刷新间隔，设置自动保存。
-- 房间显示封面、完整 MOTD、地址、玩家数、延迟和状态，列表支持滚动。
-- 房间支持按 IP、IP+端口或 MOTD 记忆屏蔽，屏蔽后移动到独立页签，可恢复显示。
-- Mod Menu 提供配置入口，配置保存到 `config/radminlan.json`。
-- 列表、属性页和设置支持小窗口滚动裁剪；Radmin 房间标题显示为“Radmin局域网世界”。
+- **只安装 RadminLAN**：使用网络、用户、已屏蔽用户和设置标签页。需要 Fabric API，以及 Windows 上已安装并运行的 Radmin VPN 服务。
+- **只安装 [LanWorlds](https://github.com/block-fox/LanWorlds)**：增强原版局域网房间列表，查看封面、MOTD、地址、人数、延迟并管理房间屏蔽，无需 Radmin VPN。
+- **同时安装**：RadminLAN 为 LanWorlds 中匹配到的 Radmin 用户提供额外信息，以及用户和网络属性操作。
 
-## 版本目录
+从 0.3.0 起，局域网房间功能移至独立仓库 LanWorlds。联动需要 RadminLAN **0.3.0 或更新版本**与 LanWorlds **0.1.0 或更新版本**，两个包必须对应相同的 Minecraft 版本。旧房间屏蔽规则和查询设置会在 LanWorlds 首次启动时从 `config/radminlan.json` 迁移，原文件保留。
 
-- `versions/26.3/`：Fabric 26.3 构建配置和输出包。
-- `versions/26.2/`：Fabric 26.2 构建配置和输出包。
-- `versions/1.21.11/`：使用独立源码和 Gradle 配置的 Fabric 1.21.11 移植工程。
+## 功能
 
-26.2 和 26.3 共用代码，各自配置和打包产物分开放置。1.21.11 的 Minecraft GUI API 不同，因此使用独立源码。每个构建包文件名都会标注兼容版本：`radminlan-0.2.0-26.3.jar`、`radminlan-0.2.0-26.2.jar` 和 `radminlan-0.2.0-1.21.11.jar`。请安装与游戏版本对应的包。
+- 网络和用户支持八种查看方式、排序、过滤和多选；查看网络用户时自动应用网络过滤。
+- 顶部直接修改用户名、切换 Radmin 电源；关闭前需确认。
+- 通过 Windows 控制管道读取服务、网络、用户与实际延迟，配置 CLI 后可回退查询。
+- 使用信号图标显示在线状态，仅悬停图标时显示详细提示。
+- 自动刷新开关和 1–60 秒刷新间隔；设置自动保存至 `config/radminlan.json`。
+- 列表、设置和属性页支持小窗口滚动裁剪；Mod Menu 提供配置入口。
 
-## 调试构建
+## 开发
 
-使用 JDK 25 构建 Fabric 26.3 并整理到 `versions/26.3/build/`：
+26.2、26.3 共用根源码，使用 JDK 25；1.21.11 使用独立源码和 JDK 21。运行客户端：
 
-```text
-powershell -ExecutionPolicy Bypass -File scripts/build-26.3.ps1
-powershell -ExecutionPolicy Bypass -File scripts/run-26.3.ps1
+```powershell
+./scripts/run-26.3.ps1 -JavaHome '<JDK 25 路径>' -Online
+./scripts/run-26.2.ps1 -JavaHome '<JDK 25 路径>' -Online
+./scripts/run-1.21.11.ps1 -JavaHome '<JDK 21 路径>' -Online
 ```
 
-本机调试默认使用 `libs/` 中的离线运行库。没有这些缓存时可使用公开 Maven 依赖构建：
+构建用同版本的 `scripts/build-*.ps1`，产物整理到 `versions/<游戏版本>/build/`。脚本用参数选择版本，不改写根配置；构建或切换版本前请退出开发客户端。离线缓存齐全时可省略 `-Online`。
 
-```text
-gradlew.bat build -Puse_local_runtime=false
+根配置保留本机 26.3 离线运行库支持；普通检出使用公开依赖：
+
+```powershell
+./gradlew.bat classes -Puse_local_runtime=false
 ```
 
-Fabric 26.2 使用独立配置，构建包整理到 `versions/26.2/build/`：
+运行回归检查（按游戏版本选择 JDK；26.2 追加对应 `versions/26.2/gradle.properties` 的 `-P` 参数）：
 
-```text
-powershell -ExecutionPolicy Bypass -File scripts/build-26.2.ps1
+```powershell
+./gradlew.bat -I tests/regression.init.gradle uiRegressionCheck --no-configuration-cache
+./gradlew.bat -p versions/1.21.11 -I ../../tests/regression.init.gradle uiRegressionCheck --no-configuration-cache
 ```
 
-Fabric 1.21.11 工程使用 JDK 21，输出整理到 `versions/1.21.11/build/`：
-
-```text
-powershell -ExecutionPolicy Bypass -File scripts/build-1.21.11.ps1
-powershell -ExecutionPolicy Bypass -File scripts/run-1.21.11.ps1
-```
-
-Fabric 26.2 和 26.3 构建使用 JDK 25。
-
-这些脚本支持 `-JavaHome` 指定 JDK 路径，默认使用本地缓存；首次下载依赖可加 `-Online`。构建脚本通过参数选择版本，不改写根目录配置。切换版本或构建前请退出开发客户端。
-
-回归检查覆盖鼠标编号、配置迁移、查看方式与过滤、128 组列表布局、在线状态与延迟协议、Radmin 房间标题匹配。使用对应 JDK 执行：
-
-```text
-gradlew.bat -I tests/regression.init.gradle uiRegressionCheck --offline --no-configuration-cache
-gradlew.bat -I tests/regression.init.gradle uiRegressionCheck -Pminecraft_version=26.2 -Pminecraft_dependency=~26.2 -Pfabric_version=0.161.0+26.2 -Pmodmenu_version=20.0.3 -Puse_local_runtime=false --offline --no-configuration-cache
-gradlew.bat -p versions/1.21.11 -I ../../tests/regression.init.gradle uiRegressionCheck --offline --no-configuration-cache
-```
-
-安装并运行 Windows Radmin VPN 后，可将任务名换成 `nativeTelemetrySmoke`，验证只读订阅和关闭清理；该检查仅输出汇总数量。
-
-## 配置示例
-
-```json
-{
-  "radminExecutable": "C:/Program Files/Radmin VPN/Radmin VPN CLI.exe",
-  "pipeName": "\\\\.\\pipe\\RadminVpnGuiChannel",
-  "enableCli": true,
-  "queryTimeoutMs": 1000,
-  "defaultBlockType": "IP_PORT",
-  "autoRefresh": true,
-  "refreshIntervalSeconds": 2,
-  "networkViewMode": "LIST",
-  "peerViewMode": "LIST"
-}
-```
-
-## 参考项目
-
-只用官方客户端作为行为参考；本项目的 Minecraft 集成、UI、房间缓存和配置代码均独立实现。
+回归覆盖鼠标编号、配置迁移、过滤与查看方式、128 组布局、在线状态和延迟协议。安装 Radmin VPN 后可将任务改为 `nativeTelemetrySmoke`，进行只读订阅检查。可选联动协议见 [docs/lanworlds-integration.md](docs/lanworlds-integration.md)。

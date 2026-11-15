@@ -3,7 +3,6 @@ package dev.radminlan.ui;
 import dev.radminlan.RadminLanClient;
 import dev.radminlan.input.MouseButtons;
 import dev.radminlan.network.RadminBackend;
-import dev.radminlan.room.LanRoomSnapshot;
 import dev.radminlan.ui.RadminListLayout.Cell;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractButton;
@@ -51,7 +50,6 @@ public final class RadminScreen extends Screen {
     private String lastAction = "";
     private String listSignature = "";
     private int scrollOffset;
-    private int refreshTicks;
     private int ticksUntilRefresh;
     private ActionMenu actionMenu = ActionMenu.NONE;
     private int menuScrollOffset;
@@ -65,7 +63,6 @@ public final class RadminScreen extends Screen {
     private boolean multiSelectMode;
     private final Set<String> selectedNetworkGuids = new HashSet<>();
     private final Set<Long> selectedPeerIds = new HashSet<>();
-    private final Set<String> selectedBlockedRoomKeys = new HashSet<>();
     private final Set<Long> selectedBlockedPeerIds = new HashSet<>();
     private boolean refreshInFlight;
     private RadminBackend.Network selectedNetwork;
@@ -91,18 +88,12 @@ public final class RadminScreen extends Screen {
     private String cachedFilterQuery;
     private RadminBackend.RadminSnapshot cachedFilterSnapshot;
     private String cachedFilterNetworkGuid;
-    private List<LanRoomSnapshot> cachedFilterBlockedSource = List.of();
     private List<RadminBackend.Network> cachedFilteredNetworks = List.of();
     private List<RadminBackend.Peer> cachedFilteredPeers = List.of();
-    private List<LanRoomSnapshot> cachedFilteredBlockedRooms = List.of();
     private List<RadminBackend.Peer> cachedFilteredBlockedPeers = List.of();
     private int cachedContentHeight = -1;
     private final Map<Long, String> cachedPeerNetworkNames = new HashMap<>();
     private final Map<Long, List<String>> cachedPeerNetworkMemberships = new HashMap<>();
-    private long filterGeneration;
-    private long blockedRoomsGeneration = Long.MIN_VALUE;
-    private List<LanRoomSnapshot> observedBlockedRooms = List.of();
-    private int observedBlockedRoomsHash;
     private int snapshotNetworksHash;
 
     public RadminScreen(Screen parent) {
@@ -323,7 +314,6 @@ public final class RadminScreen extends Screen {
         if (!multiSelectMode) {
             selectedNetworkGuids.clear();
             selectedPeerIds.clear();
-            selectedBlockedRoomKeys.clear();
             selectedBlockedPeerIds.clear();
         }
         rebuildWidgets();
@@ -570,10 +560,8 @@ public final class RadminScreen extends Screen {
     }
 
     private void addBlockedRows() {
-        List<LanRoomSnapshot> rooms = filteredBlockedRooms();
         List<RadminBackend.Peer> peers = filteredBlockedPeers();
         int peerRowsTop = listContentTop() - scrollOffset;
-        if (!rooms.isEmpty()) peerRowsTop += 22 + rooms.size() * ROW_HEIGHT;
         if (!peers.isEmpty()) peerRowsTop += 22;
         for (int i = 0; i < peers.size(); i++) {
             int rowY = peerRowsTop + i * ROW_HEIGHT;
@@ -585,14 +573,6 @@ public final class RadminScreen extends Screen {
                 selectedBlockedPeerIds.remove(peerKey(peer));
                 refreshDynamicWidgets();
             }).bounds(width - 124, rowY + 2, 104, 20).build());
-        }
-        for (int i = 0; i < rooms.size(); i++) {
-            int rowY = listContentTop() + 22 + i * ROW_HEIGHT - scrollOffset;
-            if (!rowVisible(rowY, ROW_HEIGHT)) continue;
-            LanRoomSnapshot room = rooms.get(i);
-            addListWidget(new BlockedRoomRowButton(20, rowY, width - 176, ROW_HEIGHT - 2, room));
-            addListWidget(Button.builder(Component.translatable("screen.radminlan.unblock"), button -> unblockRoom(room))
-                    .bounds(width - 124, rowY + 2, 104, 20).build());
         }
     }
 
@@ -680,17 +660,12 @@ public final class RadminScreen extends Screen {
     @Override
     public void tick() {
         super.tick();
-        refreshTicks++;
         if (RadminLanClient.CONFIG.autoRefresh) {
             if (--ticksUntilRefresh <= 0) refresh();
         } else {
             ticksUntilRefresh = RadminLanClient.CONFIG.getRefreshIntervalTicks();
         }
         if (tab == Tab.SETTINGS) return;
-        // Room discovery is owned by the vanilla detector and has no cheap
-        // revision callback. Poll its blocked view at a low cadence; explicit
-        // block/unblock actions invalidate it immediately.
-        if (tab == Tab.BLOCKED && refreshTicks % 10 == 0) invalidateFilterCache();
         boolean changed = clampScrollOffset();
         String signature = currentSignature();
         if (changed || dynamicWidgetsDirty || !signature.equals(listSignature)) {
@@ -1110,32 +1085,11 @@ public final class RadminScreen extends Screen {
         }
     }
     private void extractBlocked(GuiGraphics graphics) {
-        List<LanRoomSnapshot> rooms = filteredBlockedRooms();
         List<RadminBackend.Peer> peers = filteredBlockedPeers();
         int y = listContentTop() - scrollOffset;
-        if (rooms.isEmpty() && peers.isEmpty()) {
+        if (peers.isEmpty()) {
             graphics.drawString(font, Component.translatable("screen.radminlan.no_blocked"), 30, y, 0xFFAAAAAA);
             return;
-        }
-        if (!rooms.isEmpty()) {
-            graphics.drawString(font, Component.translatable("screen.radminlan.blocked_rooms"), 30, y + 3, 0xFFFFCC66);
-            y += 22;
-            for (LanRoomSnapshot room : rooms) {
-                if (rowVisible(y, ROW_HEIGHT)) {
-                    boolean selected = selectedBlockedRoomKeys.contains(blockedRoomKey(room));
-                    graphics.fill(20, y, width - 20, y + ROW_HEIGHT - 3, selected ? 0x665D7C99 : 0x44101010);
-                    int textX = 30;
-                    if (multiSelectMode) {
-                        drawCheckbox(graphics, 30, y + 8, selected);
-                        textX = 48;
-                    }
-                    int buttonStart = width - 132;
-                    int ipX = Math.max(textX + 80, buttonStart - 170);
-                    graphics.drawString(font, truncate(room.displayMotd().isBlank() ? room.key().toString() : room.displayMotd(), Math.max(80, ipX - textX - 10)), textX, y + 5, 0xFFDDDDDD);
-                    graphics.drawString(font, truncate(room.key().toString(), Math.max(80, buttonStart - ipX - 8)), ipX, y + 5, 0xFF999999);
-                }
-                y += ROW_HEIGHT;
-            }
         }
         if (!peers.isEmpty()) {
             graphics.drawString(font, Component.translatable("screen.radminlan.blocked_users"), 30, y + 3, 0xFFFFCC66);
@@ -1286,11 +1240,6 @@ public final class RadminScreen extends Screen {
         return cachedFilteredPeers;
     }
 
-    private List<LanRoomSnapshot> filteredBlockedRooms() {
-        ensureFilterCache();
-        return cachedFilteredBlockedRooms;
-    }
-
     private List<RadminBackend.Peer> filteredBlockedPeers() {
         ensureFilterCache();
         return cachedFilteredBlockedPeers;
@@ -1300,39 +1249,23 @@ public final class RadminScreen extends Screen {
         cachedFilterQuery = null;
         cachedFilterSnapshot = null;
         cachedFilterNetworkGuid = null;
-        cachedFilterBlockedSource = List.of();
         cachedContentHeight = -1;
         cachedPeerNetworkNames.clear();
         cachedPeerNetworkMemberships.clear();
-        blockedRoomsGeneration = Long.MIN_VALUE;
-        filterGeneration++;
-    }
-
-    private List<LanRoomSnapshot> observedBlockedRooms() {
-        if (blockedRoomsGeneration != filterGeneration) {
-            observedBlockedRooms = RadminLanClient.ROOMS == null
-                    ? List.of() : RadminLanClient.ROOMS.blockedRooms();
-            observedBlockedRoomsHash = observedBlockedRooms.hashCode();
-            blockedRoomsGeneration = filterGeneration;
-        }
-        return observedBlockedRooms;
     }
 
     private void ensureFilterCache() {
         String currentQuery = query();
         String networkGuid = selectedNetwork == null ? "" : selectedNetwork.guid();
-        List<LanRoomSnapshot> blockedRooms = tab == Tab.BLOCKED ? observedBlockedRooms() : List.of();
         if (cachedFilterSnapshot == snapshot
                 && currentQuery.equals(cachedFilterQuery)
-                && networkGuid.equals(cachedFilterNetworkGuid)
-                && blockedRooms == cachedFilterBlockedSource) {
+                && networkGuid.equals(cachedFilterNetworkGuid)) {
             return;
         }
 
         cachedFilterSnapshot = snapshot;
         cachedFilterQuery = currentQuery;
         cachedFilterNetworkGuid = networkGuid;
-        cachedFilterBlockedSource = blockedRooms;
         cachedPeerNetworkNames.clear();
         cachedPeerNetworkMemberships.clear();
         cachedFilteredNetworks = snapshot.networks().stream()
@@ -1358,11 +1291,6 @@ public final class RadminScreen extends Screen {
                 .filter(peer -> peerPreferences.matchesPeer(peer, networkMembershipsFor(peer)))
                 .filter(peer -> currentQuery.isBlank() || matchesPeer(peer, currentQuery))
                 .sorted(peerPreferences.peerComparator(this::networkNamesFor))
-                .toList();
-        cachedFilteredBlockedRooms = blockedRooms.stream()
-                .filter(room -> currentQuery.isBlank()
-                        || contains(room.displayMotd(), currentQuery)
-                        || contains(room.key().toString(), currentQuery))
                 .toList();
         cachedFilteredBlockedPeers = uniquePeers.values().stream()
                 .filter(peer -> RadminLanClient.CONFIG.isPeerBlocked(peer.nodeId(), peer.name(), peer.publicIp(), peer.virtualIp()))
@@ -1403,8 +1331,7 @@ public final class RadminScreen extends Screen {
     private String query() { return searchBox == null ? "" : searchBox.getValue().trim().toLowerCase(Locale.ROOT); }
     private static boolean contains(String value, String query) { return value != null && value.toLowerCase(Locale.ROOT).contains(query); }
     private String currentSignature() {
-        if (tab == Tab.BLOCKED) observedBlockedRooms();
-        return tab + "|" + snapshotNetworksHash + "|" + (tab == Tab.BLOCKED ? observedBlockedRoomsHash : 0) + "|" + scrollOffset;
+        return tab + "|" + snapshotNetworksHash + "|" + scrollOffset;
     }
     private int contentHeight() {
         if (tab == Tab.SETTINGS) return settingsPanel.contentHeight() + 8;
@@ -1413,8 +1340,7 @@ public final class RadminScreen extends Screen {
         cachedContentHeight = switch (tab) {
             case NETWORKS -> RadminListLayout.rowsHeight(cachedFilteredNetworks.size(), width, preferences().viewMode);
             case PEERS -> RadminListLayout.rowsHeight(cachedFilteredPeers.size(), width, preferences().viewMode);
-            case BLOCKED -> (cachedFilteredBlockedRooms.isEmpty() ? 0 : cachedFilteredBlockedRooms.size() * ROW_HEIGHT + 22)
-                    + (cachedFilteredBlockedPeers.isEmpty() ? 0 : cachedFilteredBlockedPeers.size() * ROW_HEIGHT + 22);
+            case BLOCKED -> cachedFilteredBlockedPeers.isEmpty() ? 0 : cachedFilteredBlockedPeers.size() * ROW_HEIGHT + 22;
             case SETTINGS -> settingsPanel.contentHeight() + 8;
         };
         if (cachedContentHeight > 0) cachedContentHeight += listContentTop() - listTop();
@@ -1430,8 +1356,7 @@ public final class RadminScreen extends Screen {
         return switch (tab) {
             case NETWORKS -> filteredNetworks().stream().anyMatch(network -> selectedNetworkGuids.contains(network.guid()));
             case PEERS -> filteredPeers().stream().anyMatch(peer -> selectedPeerIds.contains(peerKey(peer)));
-            case BLOCKED -> filteredBlockedRooms().stream().anyMatch(room -> selectedBlockedRoomKeys.contains(blockedRoomKey(room)))
-                    || filteredBlockedPeers().stream().anyMatch(peer -> selectedBlockedPeerIds.contains(peerKey(peer)));
+            case BLOCKED -> filteredBlockedPeers().stream().anyMatch(peer -> selectedBlockedPeerIds.contains(peerKey(peer)));
             case SETTINGS -> false;
         };
     }
@@ -1464,32 +1389,15 @@ public final class RadminScreen extends Screen {
                 || (RadminLanClient.CONFIG != null && RadminLanClient.CONFIG.isNetworkDisabled(network.guid())));
     }
 
-    private void unblockRoom(LanRoomSnapshot room) {
-        RadminLanClient.CONFIG.blocked.removeIf(rule -> rule.matches(room.key().ip(), room.key().port(), room.motd()));
-        RadminLanClient.CONFIG.save();
-        selectedBlockedRoomKeys.remove(blockedRoomKey(room));
-        refreshDynamicWidgets();
-    }
-
     private void batchUnblockBlocked() {
-        List<LanRoomSnapshot> rooms = filteredBlockedRooms().stream()
-                .filter(room -> selectedBlockedRoomKeys.contains(blockedRoomKey(room))).toList();
-        for (LanRoomSnapshot room : rooms) {
-            RadminLanClient.CONFIG.blocked.removeIf(rule -> rule.matches(room.key().ip(), room.key().port(), room.motd()));
-        }
         for (RadminBackend.Peer peer : filteredBlockedPeers()) {
             if (selectedBlockedPeerIds.contains(peerKey(peer))) {
                 RadminLanClient.CONFIG.unblockPeer(peer.nodeId(), peer.name(), peer.publicIp(), peer.virtualIp());
             }
         }
         RadminLanClient.CONFIG.save();
-        selectedBlockedRoomKeys.clear();
         selectedBlockedPeerIds.clear();
         refreshDynamicWidgets();
-    }
-
-    private static String blockedRoomKey(LanRoomSnapshot room) {
-        return room == null || room.key() == null ? "" : room.key().toString();
     }
 
     private long peerKey(RadminBackend.Peer peer) {
@@ -1509,13 +1417,6 @@ public final class RadminScreen extends Screen {
             selectedPeerIds.clear();
             selectedPeerIds.addAll(next);
         } else if (tab == Tab.BLOCKED) {
-            Set<String> roomKeys = new HashSet<>();
-            for (LanRoomSnapshot room : filteredBlockedRooms()) {
-                String key = blockedRoomKey(room);
-                if (!selectedBlockedRoomKeys.contains(key)) roomKeys.add(key);
-            }
-            selectedBlockedRoomKeys.clear();
-            selectedBlockedRoomKeys.addAll(roomKeys);
             Set<Long> peerKeys = new HashSet<>();
             for (RadminBackend.Peer peer : filteredBlockedPeers()) {
                 long key = peerKey(peer);
@@ -1582,39 +1483,6 @@ public final class RadminScreen extends Screen {
             selectedPeerIds.clear();
             refresh();
         }));
-    }
-
-    private final class BlockedRoomRowButton extends AbstractButton {
-        private final LanRoomSnapshot room;
-        private BlockedRoomRowButton(int x, int y, int width, int height, LanRoomSnapshot room) {
-            super(x, y, width, height, Component.literal(room.displayMotd()));
-            this.room = room;
-        }
-        @Override public void onPress(InputWithModifiers input) {
-            String key = blockedRoomKey(room);
-            if (input.hasShiftDown()) {
-                List<LanRoomSnapshot> all = filteredBlockedRooms();
-                int current = all.indexOf(room);
-                int anchor = -1;
-                for (int i = 0; i < all.size(); i++) {
-                    if (selectedBlockedRoomKeys.contains(blockedRoomKey(all.get(i)))) { anchor = i; break; }
-                }
-                if (anchor >= 0) {
-                    for (int i = Math.min(anchor, current); i <= Math.max(anchor, current); i++) {
-                        selectedBlockedRoomKeys.add(blockedRoomKey(all.get(i)));
-                    }
-                } else if (!selectedBlockedRoomKeys.add(key)) {
-                    selectedBlockedRoomKeys.remove(key);
-                }
-            } else if (!selectedBlockedRoomKeys.add(key)) {
-                selectedBlockedRoomKeys.remove(key);
-            }
-            dynamicWidgetsDirty = true;
-        }
-        @Override protected void renderContents(GuiGraphics graphics, int mouseX, int mouseY, float delta) {
-            if (isHoveredOrFocused()) graphics.fill(getX(), getY(), getRight(), getBottom(), 0x225B8DB8);
-        }
-        @Override public void updateWidgetNarration(NarrationElementOutput output) { defaultButtonNarrationText(output); }
     }
 
     private final class BlockedPeerRowButton extends AbstractButton {

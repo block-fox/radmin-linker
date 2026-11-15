@@ -19,7 +19,7 @@ public final class RadminSettingsPanel {
     private static final int SECTION_HEIGHT = 24;
     private static final int ROW_HEIGHT = 56;
     private static final int SECTION_GAP = 12;
-    private static final int CONTENT_HEIGHT = SECTION_HEIGHT * 3 + ROW_HEIGHT * 5 + SECTION_GAP * 2 + 22;
+    private static final int CONTENT_HEIGHT = SECTION_HEIGHT * 3 + ROW_HEIGHT * 4 + SECTION_GAP * 2 + 22;
 
     private Font font;
     private int panelX;
@@ -30,7 +30,6 @@ public final class RadminSettingsPanel {
     private String intervalDraft;
     private boolean intervalValid = true;
     private Button positionButton;
-    private Button timeoutButton;
     private Button cliButton;
     private Button autoRefreshButton;
     private EditBox intervalBox;
@@ -52,7 +51,6 @@ public final class RadminSettingsPanel {
         if (recreate) createWidgets();
 
         positionButton.setMessage(positionValue());
-        timeoutButton.setMessage(timeoutValue());
         cliButton.setMessage(toggleValue(config().enableCli));
         autoRefreshButton.setMessage(toggleValue(config().autoRefresh));
         sections.clear();
@@ -61,7 +59,6 @@ public final class RadminSettingsPanel {
         y = addSection("screen.radminlan.settings.interface", y);
         y = addRow("screen.radminlan.button_position", "screen.radminlan.settings.position_description", positionButton, y);
         y = addSection("screen.radminlan.settings.connection", y + SECTION_GAP);
-        y = addRow("screen.radminlan.settings.timeout_label", "screen.radminlan.settings.timeout_description", timeoutButton, y);
         y = addRow("screen.radminlan.settings.cli_label", "screen.radminlan.settings.cli_description", cliButton, y);
         y = addSection("screen.radminlan.settings.refresh", y + SECTION_GAP);
         y = addRow("screen.radminlan.settings.auto_refresh_label", "screen.radminlan.settings.auto_refresh_description", autoRefreshButton, y);
@@ -131,12 +128,6 @@ public final class RadminSettingsPanel {
             button.setMessage(positionValue());
             save();
         }).bounds(0, 0, 100, 20).build();
-        timeoutButton = Button.builder(timeoutValue(), button -> {
-            int current = config().queryTimeoutMs;
-            config().queryTimeoutMs = current < 100 || current >= 2000 ? 100 : Math.min(2000, current + 100);
-            button.setMessage(timeoutValue());
-            save();
-        }).bounds(0, 0, 100, 20).build();
         cliButton = Button.builder(toggleValue(config().enableCli), button -> {
             config().enableCli = !config().enableCli;
             button.setMessage(toggleValue(config().enableCli));
@@ -154,7 +145,7 @@ public final class RadminSettingsPanel {
             intervalDraft = value;
             validateInterval(true);
         });
-        widgets = List.of(positionButton, timeoutButton, cliButton, autoRefreshButton, intervalBox);
+        widgets = List.of(positionButton, cliButton, autoRefreshButton, intervalBox);
     }
 
     private int addSection(String title, int offset) {
@@ -193,10 +184,6 @@ public final class RadminSettingsPanel {
     }
 
     private static RadminConfig config() { return RadminLanClient.CONFIG; }
-
-    private static Component timeoutValue() {
-        return Component.translatable("screen.radminlan.settings.timeout_value", config().queryTimeoutMs);
-    }
 
     private static Component toggleValue(boolean enabled) {
         return Component.translatable(enabled ? "screen.radminlan.enabled" : "screen.radminlan.disabled");

@@ -3,12 +3,11 @@ package dev.radminlan;
 import dev.radminlan.config.RadminConfig;
 import dev.radminlan.network.RadminBackend;
 import dev.radminlan.network.RadminBackends;
-import dev.radminlan.room.LanRoomRepository;
+import dev.radminlan.compat.LanWorldsProvider;
 import dev.radminlan.ui.RadminScreen;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.minecraft.client.gui.screens.Screen;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -16,8 +15,6 @@ public final class RadminLanClient implements ClientModInitializer {
     public static final String MOD_ID = "radminlan";
     public static RadminConfig CONFIG;
     public static RadminBackend BACKEND;
-    public static LanRoomRepository ROOMS;
-    public static volatile Screen MULTIPLAYER_SCREEN;
     private static volatile RadminBackend.RadminSnapshot cachedSnapshot =
             RadminBackend.RadminSnapshot.unavailable("Loading...");
     private static final AtomicBoolean SNAPSHOT_REQUEST_PENDING = new AtomicBoolean();
@@ -34,7 +31,7 @@ public final class RadminLanClient implements ClientModInitializer {
     public void onInitializeClient() {
         CONFIG = RadminConfig.load();
         BACKEND = RadminBackends.create(CONFIG);
-        ROOMS = new LanRoomRepository(CONFIG);
+        LanWorldsProvider.register();
         refreshSnapshot();
         int[] ticksSinceRefresh = {0};
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
@@ -51,7 +48,7 @@ public final class RadminLanClient implements ClientModInitializer {
             }
         });
         ClientLifecycleEvents.CLIENT_STOPPING.register(client -> {
-            ROOMS.close();
+            LanWorldsProvider.unregister();
             BACKEND.close();
             CONFIG.save();
         });
@@ -69,4 +66,3 @@ public final class RadminLanClient implements ClientModInitializer {
         }
     }
 }
-
