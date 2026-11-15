@@ -7,15 +7,50 @@ import dev.radminlan.ui.RadminEntryButton;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.multiplayer.JoinMultiplayerScreen;
+import net.minecraft.client.server.LanServerDetection;
 import net.minecraft.network.chat.Component;
+import org.slf4j.Logger;
+import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+import java.io.IOException;
+
 @Mixin(JoinMultiplayerScreen.class)
 public abstract class MultiplayerScreenMixin extends Screen {
+    @Shadow @Final private static Logger LOGGER;
+    @Shadow private LanServerDetection.LanServerList lanServerList;
+    @Shadow private LanServerDetection.LanServerDetector lanServerDetector;
+    @Unique private int radminlan$detectorRetryTicks;
+
     protected MultiplayerScreenMixin(Component title) { super(title); }
+
+    @Inject(method = "tick", at = @At("HEAD"))
+    private void radminlan$resumeVanillaDiscovery(CallbackInfo ci) {
+        if (FabricLoader.getInstance().isModLoaded("lanworlds")) return;
+        if (lanServerDetector != null && lanServerDetector.isAlive()) return;
+        if (radminlan$detectorRetryTicks > 0) {
+            radminlan$detectorRetryTicks--;
+            return;
+        }
+        // Returning to an initialized multiplayer screen only repositions it;
+        // removed() stopped its detector. Resume the same vanilla list so its
+        // selection and scroll position survive a trip through management.
+        radminlan$detectorRetryTicks = 100;
+        if (lanServerList == null) lanServerList = new LanServerDetection.LanServerList();
+        try {
+            LanServerDetection.LanServerDetector detector = new LanServerDetection.LanServerDetector(lanServerList);
+            detector.start();
+            lanServerDetector = detector;
+            radminlan$detectorRetryTicks = 0;
+        } catch (IOException error) {
+            LOGGER.debug("Unable to resume LAN server detection", error);
+        }
+    }
 
     @Inject(method = "init", at = @At("TAIL"))
     private void radminlan$addButton(CallbackInfo ci) {
