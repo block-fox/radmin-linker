@@ -32,6 +32,7 @@ import java.util.LinkedHashSet;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Objects;
 import java.util.Set;
 
 /** Radmin management workspace built from vanilla Minecraft widgets. */
@@ -47,7 +48,7 @@ public final class RadminScreen extends Screen {
     private final Screen parent;
     private Tab tab = Tab.NETWORKS;
     private volatile RadminBackend.RadminSnapshot snapshot = RadminBackend.RadminSnapshot.unavailable("Loading...");
-    private String lastAction = "";
+    private Component lastAction = Component.empty();
     private String listSignature = "";
     private int scrollOffset;
     private int ticksUntilRefresh;
@@ -61,10 +62,11 @@ public final class RadminScreen extends Screen {
     private int dragGrabOffset;
     private boolean dynamicWidgetsDirty;
     private boolean multiSelectMode;
-    private final Set<String> selectedNetworkGuids = new HashSet<>();
+    private final Set<String> selectedNetworkKeys = new HashSet<>();
     private final Set<Long> selectedPeerIds = new HashSet<>();
     private final Set<Long> selectedBlockedPeerIds = new HashSet<>();
     private boolean refreshInFlight;
+    private boolean batchInFlight;
     private RadminBackend.Network selectedNetwork;
     private RadminBackend.Peer selectedPeer;
     private RadminBackend.Network contextNetwork;
@@ -119,7 +121,7 @@ public final class RadminScreen extends Screen {
     @Override
     protected void init() {
         rebuildWidgets();
-        refresh();
+        refresh(lastAction.getString().isBlank());
     }
 
     @Override
@@ -211,15 +213,17 @@ public final class RadminScreen extends Screen {
     private void updateAliasControls() {
         if (aliasConfirmButton == null) return;
         aliasConfirmButton.visible = !aliasDraft.trim().equals(aliasBaseline);
-        aliasConfirmButton.active = !aliasDraft.isBlank() && !aliasSaveInFlight && snapshot.canWrite();
-        if (aliasBox != null) aliasBox.setEditable(!aliasSaveInFlight);
+        boolean allowAlias = RadminLanClient.BACKEND.supportsAliasChanges();
+        aliasConfirmButton.active = allowAlias && !aliasDraft.isBlank() && !aliasSaveInFlight && snapshot.canWrite();
+        if (aliasBox != null) aliasBox.setEditable(allowAlias && !aliasSaveInFlight);
     }
 
     private void submitAlias() {
         String alias = aliasDraft.trim();
-        if (alias.isBlank() || alias.equals(aliasBaseline) || aliasSaveInFlight || !snapshot.canWrite()) return;
+        if (alias.isBlank() || alias.equals(aliasBaseline) || aliasSaveInFlight || !snapshot.canWrite()
+                || !RadminLanClient.BACKEND.supportsAliasChanges()) return;
         aliasSaveInFlight = true;
-        lastAction = "screen.radminlan.request_pending";
+        lastAction = Component.translatable("screen.radminlan.request_pending");
         updateAliasControls();
         RadminLanClient.BACKEND.setAlias(alias).whenComplete((ok, error) -> runOnClient(() -> {
             aliasSaveInFlight = false;
@@ -227,12 +231,12 @@ public final class RadminScreen extends Screen {
                 aliasBaseline = alias;
                 aliasDraft = alias;
                 if (aliasBox != null) aliasBox.setValue(alias);
-                lastAction = "screen.radminlan.request_sent";
+                lastAction = Component.translatable("screen.radminlan.request_sent");
             } else {
-                lastAction = "screen.radminlan.request_failed";
+                lastAction = Component.translatable("screen.radminlan.request_failed");
             }
             updateAliasControls();
-            refresh();
+            refresh(false);
         }));
     }
 
@@ -312,7 +316,7 @@ public final class RadminScreen extends Screen {
         multiSelectMode = !multiSelectMode;
         clearContext();
         if (!multiSelectMode) {
-            selectedNetworkGuids.clear();
+            selectedNetworkKeys.clear();
             selectedPeerIds.clear();
             selectedBlockedPeerIds.clear();
         }
@@ -503,7 +507,8 @@ public final class RadminScreen extends Screen {
             refreshDynamicWidgets();
             action.run();
         });
-        button.active = hasAnySelection();
+        button.active = !batchInFlight && hasAnySelection()
+                && (!key.equals("screen.radminlan.kick") || RadminLanClient.BACKEND.supportsMemberRemoval());
     }
     private <T extends AbstractWidget> T addListWidget(T widget) {
         dynamicWidgets.add(widget);
@@ -586,7 +591,7 @@ public final class RadminScreen extends Screen {
                 () -> setNetworkEnabled(contextNetwork, !enabled));
         addContextButton(Component.translatable("screen.radminlan.copy_guid"), x, y + 40, () -> {
             if (minecraft != null) minecraft.keyboardHandler.setClipboard(contextNetwork.guid());
-            lastAction = "screen.radminlan.copied";
+            lastAction = Component.translatable("screen.radminlan.copied");
             clearContext();
             refreshDynamicWidgets();
         });
@@ -603,7 +608,8 @@ public final class RadminScreen extends Screen {
         int y = contextPanelY() + 23 - menuScrollOffset;
         addContextButton(Component.translatable("screen.radminlan.properties"), x, y, this::showPeerDetails);
         addContextButton(Component.translatable("screen.radminlan.block_user"), x, y + 20, this::blockPeer);
-        addContextButton(Component.translatable("screen.radminlan.kick"), x, y + 40, this::kickPeer);
+        addContextButton(Component.translatable("screen.radminlan.kick"), x, y + 40, this::kickPeer)
+                .active = RadminLanClient.BACKEND.supportsMemberRemoval();
         addContextButton(Component.translatable("screen.radminlan.cancel"), x, y + 60, () -> { clearContext(); refreshDynamicWidgets(); });
     }
 
@@ -618,30 +624,67 @@ public final class RadminScreen extends Screen {
     }
 
     private void refresh() {
+        refresh(true);
+    }
+
+    private void refresh(boolean reportStatus) {
         if (refreshInFlight) return;
         ticksUntilRefresh = RadminLanClient.CONFIG.getRefreshIntervalTicks();
         refreshInFlight = true;
-        lastAction = "screen.radminlan.request_pending";
+        Component pending = Component.translatable("screen.radminlan.request_pending");
+        if (reportStatus) lastAction = pending;
         RadminLanClient.BACKEND.snapshot().whenComplete((result, error) -> {
             if (minecraft == null) return;
             minecraft.execute(() -> {
                 refreshInFlight = false;
                 if (error != null) {
                     snapshot = RadminBackend.RadminSnapshot.unavailable(error.getMessage() == null ? "Radmin request failed" : error.getMessage());
-                    lastAction = "screen.radminlan.request_failed";
+                    if (reportStatus && lastAction == pending) lastAction = Component.translatable("screen.radminlan.request_failed");
                 } else {
-                    snapshot = result == null ? RadminBackend.RadminSnapshot.unavailable("Radmin returned no snapshot") : result;
-                    snapshotNetworksHash = snapshot.networks().hashCode();
-                    RadminLanClient.publishSnapshot(snapshot);
-                    lastAction = "screen.radminlan.refreshed";
+                    RadminBackend.RadminSnapshot latest = RadminLanClient.BACKEND.latestSnapshot();
+                    snapshot = latest != null ? latest
+                            : result == null ? RadminBackend.RadminSnapshot.unavailable("Radmin returned no snapshot") : result;
+                    if (reportStatus && lastAction == pending) lastAction = Component.translatable("screen.radminlan.refreshed");
                 }
-                listSignature = currentSignature();
-                updatePowerButton();
-                syncAliasFromSnapshot();
-                if (tab != Tab.SETTINGS) refreshDynamicWidgets();
+                RadminLanClient.publishSnapshot(snapshot);
+                applySnapshot(snapshot);
             });
         });
         if (tab != Tab.SETTINGS) refreshDynamicWidgets();
+    }
+
+    private void applySnapshot(RadminBackend.RadminSnapshot next) {
+        selectedNetwork = resolveNetwork(selectedNetwork, next);
+        selectedPeer = resolvePeer(selectedPeer, next);
+        boolean hadContext = contextNetwork != null || contextPeer != null;
+        contextNetwork = resolveNetwork(contextNetwork, next);
+        contextPeer = resolvePeer(contextPeer, next);
+        if (hadContext && contextNetwork == null && contextPeer == null) clearContext();
+        snapshot = next;
+        snapshotNetworksHash = snapshot.networks().hashCode();
+        listSignature = currentSignature();
+        updatePowerButton();
+        syncAliasFromSnapshot();
+        if (tab != Tab.SETTINGS) refreshDynamicWidgets();
+    }
+
+    private static RadminBackend.Network resolveNetwork(RadminBackend.Network previous, RadminBackend.RadminSnapshot current) {
+        if (previous == null) return null;
+        String key = networkKey(previous);
+        return current.networks().stream().filter(network -> key.equals(networkKey(network))).findFirst().orElse(null);
+    }
+
+    private static RadminBackend.Peer resolvePeer(RadminBackend.Peer previous, RadminBackend.RadminSnapshot current) {
+        if (previous == null) return null;
+        RadminBackend.Peer fallback = null;
+        for (RadminBackend.Network network : current.networks()) {
+            for (RadminBackend.Peer peer : network.peers()) {
+                if (!samePeer(previous, peer)) continue;
+                if (Objects.equals(peer.networkName(), previous.networkName())) return peer;
+                if (fallback == null) fallback = peer;
+            }
+        }
+        return fallback;
     }
 
     private void updatePowerButton() {
@@ -649,19 +692,22 @@ public final class RadminScreen extends Screen {
         powerButton.setMessage(Component.translatable(snapshot.power() == null ? "screen.radminlan.power_unknown"
                 : Boolean.TRUE.equals(snapshot.power()) ? "screen.radminlan.power_on" : "screen.radminlan.power_off"));
         powerButton.active = snapshot.canWrite() || snapshot.state() == RadminBackend.ServiceState.DISABLED
-                || snapshot.state() == RadminBackend.ServiceState.UNAVAILABLE;
+                || snapshot.state() == RadminBackend.ServiceState.UNAVAILABLE
+                || snapshot.state() == RadminBackend.ServiceState.ERROR && Boolean.FALSE.equals(snapshot.power());
     }
 
     public void refreshAfterOperation(String message) {
-        lastAction = message;
-        refresh();
+        lastAction = Component.translatable(message);
+        refresh(false);
     }
 
     @Override
     public void tick() {
         super.tick();
         if (RadminLanClient.CONFIG.autoRefresh) {
-            if (--ticksUntilRefresh <= 0) refresh();
+            RadminBackend.RadminSnapshot latest = RadminLanClient.cachedSnapshot();
+            if (latest != snapshot) applySnapshot(latest);
+            if (--ticksUntilRefresh <= 0) refresh(false);
         } else {
             ticksUntilRefresh = RadminLanClient.CONFIG.getRefreshIntervalTicks();
         }
@@ -676,10 +722,10 @@ public final class RadminScreen extends Screen {
     }
 
     private void setPower(boolean enabled) {
-        lastAction = "screen.radminlan.request_pending";
+        lastAction = Component.translatable("screen.radminlan.request_pending");
         RadminLanClient.BACKEND.setPower(enabled).whenComplete((ok, error) -> runOnClient(() -> {
-            lastAction = error == null && Boolean.TRUE.equals(ok) ? "screen.radminlan.request_sent" : "screen.radminlan.request_failed";
-            refresh();
+            lastAction = Component.translatable(error == null && Boolean.TRUE.equals(ok) ? "screen.radminlan.request_sent" : "screen.radminlan.request_failed");
+            refresh(false);
         }));
     }
 
@@ -687,13 +733,13 @@ public final class RadminScreen extends Screen {
         if (network == null) return;
         clearContext();
         refreshDynamicWidgets();
-        lastAction = "screen.radminlan.request_pending";
+        lastAction = Component.translatable("screen.radminlan.request_pending");
         RadminLanClient.BACKEND.setNetworkEnabled(network.guid(), enabled).whenComplete((ok, error) -> runOnClient(() -> {
             if (error == null && Boolean.TRUE.equals(ok) && RadminLanClient.CONFIG != null) {
                 RadminLanClient.CONFIG.setNetworkDisabled(network.guid(), !enabled);
             }
-            lastAction = error == null && Boolean.TRUE.equals(ok) ? "screen.radminlan.request_sent" : "screen.radminlan.request_failed";
-            refresh();
+            lastAction = Component.translatable(error == null && Boolean.TRUE.equals(ok) ? "screen.radminlan.request_sent" : "screen.radminlan.request_failed");
+            refresh(false);
         }));
     }
 
@@ -701,10 +747,10 @@ public final class RadminScreen extends Screen {
         if (network == null) return;
         clearContext();
         refreshDynamicWidgets();
-        lastAction = "screen.radminlan.request_pending";
-        RadminLanClient.BACKEND.leaveNetworkByGuid(network.guid()).whenComplete((ok, error) -> runOnClient(() -> {
-            lastAction = error == null && Boolean.TRUE.equals(ok) ? "screen.radminlan.request_sent" : "screen.radminlan.request_failed";
-            refresh();
+        lastAction = Component.translatable("screen.radminlan.request_pending");
+        RadminLanClient.BACKEND.leaveNetwork(network).whenComplete((ok, error) -> runOnClient(() -> {
+            lastAction = Component.translatable(error == null && Boolean.TRUE.equals(ok) ? "screen.radminlan.request_sent" : "screen.radminlan.request_failed");
+            refresh(false);
         }));
     }
 
@@ -712,10 +758,10 @@ public final class RadminScreen extends Screen {
         if (network == null) return;
         clearContext();
         refreshDynamicWidgets();
-        lastAction = "screen.radminlan.request_pending";
+        lastAction = Component.translatable("screen.radminlan.request_pending");
         RadminLanClient.BACKEND.deleteNetwork(network.guid()).whenComplete((ok, error) -> runOnClient(() -> {
-            lastAction = error == null && Boolean.TRUE.equals(ok) ? "screen.radminlan.request_sent" : "screen.radminlan.request_failed";
-            refresh();
+            lastAction = Component.translatable(error == null && Boolean.TRUE.equals(ok) ? "screen.radminlan.request_sent" : "screen.radminlan.request_failed");
+            refresh(false);
         }));
     }
 
@@ -740,10 +786,10 @@ public final class RadminScreen extends Screen {
         if (peer == null) return;
         RadminBackend.Network network = networkFor(peer);
         if (network == null || peer.nodeId() < 0) return;
-        lastAction = "screen.radminlan.request_pending";
+        lastAction = Component.translatable("screen.radminlan.request_pending");
         RadminLanClient.BACKEND.kickPeer(network.guid(), peer.nodeId(), network.name()).whenComplete((ok, error) -> runOnClient(() -> {
-            lastAction = error == null && Boolean.TRUE.equals(ok) ? "screen.radminlan.request_sent" : "screen.radminlan.request_failed";
-            refresh();
+            lastAction = Component.translatable(error == null && Boolean.TRUE.equals(ok) ? "screen.radminlan.request_sent" : "screen.radminlan.request_failed");
+            refresh(false);
         }));
     }
 
@@ -752,7 +798,7 @@ public final class RadminScreen extends Screen {
         clearContext();
         if (peer == null) return;
         RadminLanClient.CONFIG.blockPeer(peer.nodeId(), peer.name(), peer.publicIp(), peer.virtualIp());
-        lastAction = "screen.radminlan.peer_blocked";
+        lastAction = Component.translatable("screen.radminlan.peer_blocked");
         refreshDynamicWidgets();
     }
 
@@ -813,7 +859,7 @@ public final class RadminScreen extends Screen {
                 snapshot.state() == RadminBackend.ServiceState.READY ? 0xFF80FF80
                         : snapshot.state() == RadminBackend.ServiceState.DISABLED ? 0xFFAAAAAA : 0xFFFFCC66);
         if (!localIp.isBlank()) graphics.text(font, truncate(localIp, ipWidth), width - 20 - ipWidth, 62, 0xFFB9C2CA);
-        if (!lastAction.isBlank()) graphics.text(font, truncate(Component.translatable(lastAction).getString(), width - 40), 20, 76, 0xFFCCCCCC);
+        if (!lastAction.getString().isBlank()) graphics.text(font, truncate(lastAction.getString(), width - 40), 20, 76, 0xFFCCCCCC);
         graphics.enableScissor(20, listRowsTop(), width - 20, listBottom());
         try {
             switch (tab) {
@@ -907,10 +953,10 @@ public final class RadminScreen extends Screen {
             Cell c = cellAt(i);
             if (!rowVisible(c.y(), c.height())) continue;
             boolean disabled = isNetworkDisabled(network);
-            boolean selected = network == selectedNetwork || multiSelectMode && selectedNetworkGuids.contains(network.guid());
+            boolean selected = network == selectedNetwork || multiSelectMode && selectedNetworkKeys.contains(networkKey(network));
             graphics.fill(c.x(), c.y(), c.x() + c.width(), c.y() + c.height() - 3,
                     selected ? 0x665D7C99 : disabled ? 0x33333333 : 0x44101010);
-            if (multiSelectMode) drawCheckbox(graphics, c.x() + 7, c.y() + 7, selectedNetworkGuids.contains(network.guid()));
+            if (multiSelectMode) drawCheckbox(graphics, c.x() + 7, c.y() + 7, selectedNetworkKeys.contains(networkKey(network)));
             int color = disabled ? 0xFF858585 : 0xFFFFFFFF;
             int tx = textStart(c);
             int right = c.x() + c.width() - 8;
@@ -1354,7 +1400,7 @@ public final class RadminScreen extends Screen {
             : tab != Tab.BLOCKED && preferences().viewMode == RadminListPreferences.ViewMode.DETAILS ? 23 : 7); }
     private boolean hasAnySelection() {
         return switch (tab) {
-            case NETWORKS -> filteredNetworks().stream().anyMatch(network -> selectedNetworkGuids.contains(network.guid()));
+            case NETWORKS -> filteredNetworks().stream().anyMatch(network -> selectedNetworkKeys.contains(networkKey(network)));
             case PEERS -> filteredPeers().stream().anyMatch(peer -> selectedPeerIds.contains(peerKey(peer)));
             case BLOCKED -> filteredBlockedPeers().stream().anyMatch(peer -> selectedBlockedPeerIds.contains(peerKey(peer)));
             case SETTINGS -> false;
@@ -1385,8 +1431,8 @@ public final class RadminScreen extends Screen {
     }
 
     private boolean isNetworkDisabled(RadminBackend.Network network) {
-        return network != null && (Boolean.FALSE.equals(network.enabled())
-                || (RadminLanClient.CONFIG != null && RadminLanClient.CONFIG.isNetworkDisabled(network.guid())));
+        return network != null && (RadminLanClient.CONFIG == null ? Boolean.FALSE.equals(network.enabled())
+                : RadminLanClient.CONFIG.isNetworkDisabled(network.guid(), network.enabled()));
     }
 
     private void batchUnblockBlocked() {
@@ -1405,12 +1451,17 @@ public final class RadminScreen extends Screen {
         return 0x8000_0000_0000_0000L ^ (peer.virtualIp() == null ? 0 : peer.virtualIp().hashCode());
     }
 
+    private static String networkKey(RadminBackend.Network network) {
+        String guid = network.guid();
+        return guid == null || guid.isBlank() ? "name:" + network.name() : guid;
+    }
+
     private void invertSelection() {
         if (tab == Tab.NETWORKS) {
             Set<String> next = new HashSet<>();
-            for (RadminBackend.Network network : filteredNetworks()) if (!selectedNetworkGuids.contains(network.guid())) next.add(network.guid());
-            selectedNetworkGuids.clear();
-            selectedNetworkGuids.addAll(next);
+            for (RadminBackend.Network network : filteredNetworks()) if (!selectedNetworkKeys.contains(networkKey(network))) next.add(networkKey(network));
+            selectedNetworkKeys.clear();
+            selectedNetworkKeys.addAll(next);
         } else if (tab == Tab.PEERS) {
             Set<Long> next = new HashSet<>();
             for (RadminBackend.Peer peer : filteredPeers()) if (!selectedPeerIds.contains(peerKey(peer))) next.add(peerKey(peer));
@@ -1429,35 +1480,45 @@ public final class RadminScreen extends Screen {
     }
 
     private void batchNetworkEnabled(boolean enabled) {
+        if (batchInFlight) return;
         List<RadminBackend.Network> targets = filteredNetworks().stream()
-                .filter(network -> selectedNetworkGuids.contains(network.guid())).toList();
+                .filter(network -> selectedNetworkKeys.contains(networkKey(network))).toList();
         if (targets.isEmpty()) return;
-        lastAction = "screen.radminlan.request_pending";
-        java.util.concurrent.CompletableFuture<?> chain = java.util.concurrent.CompletableFuture.completedFuture(null);
-        for (RadminBackend.Network network : targets) chain = chain.thenCompose(ignored -> RadminLanClient.BACKEND.setNetworkEnabled(network.guid(), enabled));
-        chain.whenComplete((ignored, error) -> runOnClient(() -> {
-            if (error == null && RadminLanClient.CONFIG != null) {
-                for (RadminBackend.Network network : targets) {
-                    RadminLanClient.CONFIG.setNetworkDisabled(network.guid(), !enabled);
+        batchInFlight = true;
+        lastAction = Component.translatable("screen.radminlan.request_pending");
+        RadminBatchOperations.run(targets, network -> RadminLanClient.BACKEND.setNetworkEnabled(network.guid(), enabled))
+                .whenComplete((result, error) -> runOnClient(() -> {
+            batchInFlight = false;
+            if (error == null) {
+                for (RadminBackend.Network network : result.succeeded()) {
+                    if (RadminLanClient.CONFIG != null) {
+                        RadminLanClient.CONFIG.setNetworkDisabled(network.guid(), !enabled);
+                    }
+                    selectedNetworkKeys.remove(networkKey(network));
                 }
             }
-            lastAction = error == null ? "screen.radminlan.request_sent" : "screen.radminlan.request_failed";
-            selectedNetworkGuids.clear();
-            refresh();
+            lastAction = batchMessage(result, error);
+            refresh(false);
+            refreshDynamicWidgets();
         }));
     }
 
     private void batchLeaveNetworks() {
+        if (batchInFlight) return;
         List<RadminBackend.Network> targets = filteredNetworks().stream()
-                .filter(network -> selectedNetworkGuids.contains(network.guid())).toList();
+                .filter(network -> selectedNetworkKeys.contains(networkKey(network))).toList();
         if (targets.isEmpty()) return;
-        lastAction = "screen.radminlan.request_pending";
-        java.util.concurrent.CompletableFuture<?> chain = java.util.concurrent.CompletableFuture.completedFuture(null);
-        for (RadminBackend.Network network : targets) chain = chain.thenCompose(ignored -> RadminLanClient.BACKEND.leaveNetworkByGuid(network.guid()));
-        chain.whenComplete((ignored, error) -> runOnClient(() -> {
-            lastAction = error == null ? "screen.radminlan.request_sent" : "screen.radminlan.request_failed";
-            selectedNetworkGuids.clear();
-            refresh();
+        batchInFlight = true;
+        lastAction = Component.translatable("screen.radminlan.request_pending");
+        RadminBatchOperations.run(targets, network -> RadminLanClient.BACKEND.leaveNetwork(network))
+                .whenComplete((result, error) -> runOnClient(() -> {
+            batchInFlight = false;
+            if (error == null) {
+                for (RadminBackend.Network network : result.succeeded()) selectedNetworkKeys.remove(networkKey(network));
+            }
+            lastAction = batchMessage(result, error);
+            refresh(false);
+            refreshDynamicWidgets();
         }));
     }
 
@@ -1465,24 +1526,35 @@ public final class RadminScreen extends Screen {
         for (RadminBackend.Peer peer : filteredPeers()) if (selectedPeerIds.contains(peerKey(peer)))
             RadminLanClient.CONFIG.blockPeer(peer.nodeId(), peer.name(), peer.publicIp(), peer.virtualIp());
         selectedPeerIds.clear();
-        lastAction = "screen.radminlan.peer_blocked";
+        lastAction = Component.translatable("screen.radminlan.peer_blocked");
         refreshDynamicWidgets();
     }
 
     private void batchKickPeers() {
+        if (batchInFlight || !RadminLanClient.BACKEND.supportsMemberRemoval()) return;
         List<RadminBackend.Peer> targets = filteredPeers().stream().filter(peer -> selectedPeerIds.contains(peerKey(peer))).toList();
         if (targets.isEmpty()) return;
-        lastAction = "screen.radminlan.request_pending";
-        java.util.concurrent.CompletableFuture<?> chain = java.util.concurrent.CompletableFuture.completedFuture(null);
-        for (RadminBackend.Peer peer : targets) {
+        batchInFlight = true;
+        lastAction = Component.translatable("screen.radminlan.request_pending");
+        RadminBatchOperations.run(targets, peer -> {
             RadminBackend.Network network = networkFor(peer);
-            if (network != null && peer.nodeId() >= 0) chain = chain.thenCompose(ignored -> RadminLanClient.BACKEND.kickPeer(network.guid(), peer.nodeId(), network.name()));
-        }
-        chain.whenComplete((ignored, error) -> runOnClient(() -> {
-            lastAction = error == null ? "screen.radminlan.request_sent" : "screen.radminlan.request_failed";
-            selectedPeerIds.clear();
-            refresh();
+            return network != null && peer.nodeId() >= 0
+                    ? RadminLanClient.BACKEND.kickPeer(network.guid(), peer.nodeId(), network.name())
+                    : java.util.concurrent.CompletableFuture.completedFuture(false);
+        }).whenComplete((result, error) -> runOnClient(() -> {
+            batchInFlight = false;
+            if (error == null) {
+                for (RadminBackend.Peer peer : result.succeeded()) selectedPeerIds.remove(peerKey(peer));
+            }
+            lastAction = batchMessage(result, error);
+            refresh(false);
+            refreshDynamicWidgets();
         }));
+    }
+
+    private static Component batchMessage(RadminBatchOperations.Result<?> result, Throwable error) {
+        if (error != null || result == null) return Component.translatable("screen.radminlan.request_failed");
+        return Component.translatable("screen.radminlan.batch_result", result.succeeded().size(), result.failed().size());
     }
 
     private final class BlockedPeerRowButton extends AbstractButton {
@@ -1531,11 +1603,11 @@ public final class RadminScreen extends Screen {
                 List<RadminBackend.Network> all = filteredNetworks();
                 int current = all.indexOf(network);
                 int anchor = -1;
-                for (int i = 0; i < all.size(); i++) if (selectedNetworkGuids.contains(all.get(i).guid())) { anchor = i; break; }
-                if (anchor >= 0) for (int i = Math.min(anchor, current); i <= Math.max(anchor, current); i++) selectedNetworkGuids.add(all.get(i).guid());
-                else if (!selectedNetworkGuids.add(network.guid())) selectedNetworkGuids.remove(network.guid());
-            } else if (!selectedNetworkGuids.add(network.guid())) {
-                selectedNetworkGuids.remove(network.guid());
+                for (int i = 0; i < all.size(); i++) if (selectedNetworkKeys.contains(networkKey(all.get(i)))) { anchor = i; break; }
+                if (anchor >= 0) for (int i = Math.min(anchor, current); i <= Math.max(anchor, current); i++) selectedNetworkKeys.add(networkKey(all.get(i)));
+                else if (!selectedNetworkKeys.add(networkKey(network))) selectedNetworkKeys.remove(networkKey(network));
+            } else if (!selectedNetworkKeys.add(networkKey(network))) {
+                selectedNetworkKeys.remove(networkKey(network));
             }
             dynamicWidgetsDirty = true;
         }

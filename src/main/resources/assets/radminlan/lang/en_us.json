@@ -47,6 +47,7 @@
   "screen.radminlan.request_pending": "Sending request...",
   "screen.radminlan.request_sent": "Request sent",
   "screen.radminlan.request_failed": "Failed to send request",
+  "screen.radminlan.batch_result": "Batch operation: %s succeeded, %s failed",
   "screen.radminlan.refreshed": "Refreshed",
   "screen.radminlan.peer_blocked": "User blocked",
   "screen.radminlan.public_network_search_hint": "Search public networks",
@@ -191,5 +192,14 @@
   "screen.radminlan.settings.auto_refresh_label": "Automatic refresh",
   "screen.radminlan.settings.auto_refresh_description": "Periodically update networks and peers",
   "screen.radminlan.settings.interval_description": "Update every 1–60 seconds",
-  "screen.radminlan.settings.saved_automatically": "Changes are saved automatically"
+  "screen.radminlan.settings.saved_automatically": "Changes are saved automatically",
+  "screen.radminlan.settings.backend": "VPN backend",
+  "screen.radminlan.settings.backend_description": "Restart Minecraft after switching. On Windows, Auto uses the official service if reachable at startup. Otherwise, it uses the bundled core.",
+  "screen.radminlan.settings.backend.auto": "Auto",
+  "screen.radminlan.settings.backend.core": "Embedded core",
+  "screen.radminlan.settings.backend.windows": "Windows service",
+  "screen.radminlan.core.not_embedded": "This JAR does not include RadminLAN Core.",
+  "screen.radminlan.core.windows_only": "The official service backend requires Windows.",
+  "screen.radminlan.core.connecting": "Connecting to Radmin…",
+  "screen.radminlan.core.offline": "Core disconnected. Use the power button to connect."
 }

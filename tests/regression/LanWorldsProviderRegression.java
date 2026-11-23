@@ -1,11 +1,16 @@
 import dev.radminlan.RadminLanClient;
 import dev.radminlan.compat.LanWorldsProvider;
 import dev.radminlan.network.RadminBackend;
+import dev.radminlan.network.RadminSnapshotParser;
 import net.minecraft.locale.Language;
 import net.minecraft.network.chat.FormattedText;
 import net.minecraft.util.FormattedCharSequence;
 
 import java.io.InputStream;
+import java.io.ByteArrayOutputStream;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -25,6 +30,7 @@ public final class LanWorldsProviderRegression {
                 Map<String, String> translations = loadTranslations(locale);
                 Language.inject(withTranslations(translations, originalLanguage));
                 checkProvider(translations, locale);
+                checkParsedIpv6Matching();
             }
         } finally {
             RadminLanClient.publishSnapshot(originalSnapshot);
@@ -113,6 +119,56 @@ public final class LanWorldsProviderRegression {
     private static Map<?, ?> action(List<?> actions, int index) {
         require(actions.get(index) instanceof Map<?, ?>, "Each property action is a map");
         return (Map<?, ?>) actions.get(index);
+    }
+
+    private static void checkParsedIpv6Matching() {
+        RadminBackend.RadminSnapshot parsed = ipv6Snapshot(new byte[]{
+                (byte) 0xfd, 0, 0x12, 0x34, (byte) 0xab, (byte) 0xcd, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0x30});
+        require(parsed.state() == RadminBackend.ServiceState.READY, "IPv6 wire fixture produces a READY snapshot");
+        String expanded = parsed.networks().getFirst().peers().getFirst().virtualIpv6();
+        require("fd00:1234:abcd:0:0:0:0:30".equals(expanded), "Actual snapshot parser emits expanded IPv6");
+        RadminLanClient.publishSnapshot(parsed);
+        LanWorldsProvider provider = new LanWorldsProvider();
+        Map<String, Object> info = provider.apply(expanded);
+        require("IPv6 host".equals(info.get("name")), "Parsed IPv6 profile is indexed");
+        for (String query : List.of("fd00:1234:abcd::30", "FD00:1234:ABCD::30",
+                " [FD00:1234:ABCD::0030] ", "fd00:1234:abcd:0000:0000:0000:0000:0030",
+                "fd00:1234:abcd:0::30")) {
+            require(provider.apply(query) == info, "Equivalent parsed IPv6 shares the canonical lookup: " + query);
+        }
+        for (String query : List.of("fd00:1234:abcd::31", "fd00:1234:abcd:::30", "fd00::abcd::30",
+                "fd00:1234:abcd:0:0:0:0:00030", "fd00:1234:abcd::+30", "[fd00:1234:abcd::30]:25565",
+                "example.invalid", "fd00:1234:abcd::30%12")) {
+            require(provider.apply(query).isEmpty(), "Different or malformed host cannot alias a parsed peer: " + query);
+        }
+
+        RadminLanClient.publishSnapshot(ipv6Snapshot(new byte[]{
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, (byte) 0xff, (byte) 0xff, 26, 10, 20, 30}));
+        Map<String, Object> mapped = provider.apply("::ffff:1a0a:141e");
+        require("IPv6 host".equals(mapped.get("name")), "Parser preserves an IPv4-mapped IPv6 profile");
+        require(provider.apply("[::FFFF:26.10.20.30]") == mapped,
+                "Embedded IPv4 and hexadecimal tails use the same IPv6 lookup");
+        require(provider.apply("::ffff:26.10.20.256").isEmpty(), "Invalid embedded IPv4 is rejected");
+    }
+
+    private static RadminBackend.RadminSnapshot ipv6Snapshot(byte[] address) {
+        byte[] node = wireField(0xE1, 0x02, 1, ByteBuffer.allocate(8).putLong(NODE_ID).array());
+        byte[] network = wireField(0x23, 0, 0x13,
+                wireField(0x24, 0, 0x13, node));
+        byte[] profile = wireField(0x22, 0, 0x13, node,
+                wireField(0x04, 0x03, 3, "IPv6 host".getBytes(StandardCharsets.UTF_16BE), new byte[]{0, 1}),
+                wireField(0x05, 0x09, 3, address));
+        byte[] frame = ByteBuffer.allocate(4 + network.length + profile.length).order(ByteOrder.LITTLE_ENDIAN)
+                .putInt(network.length + profile.length).put(network).put(profile).array();
+        return RadminSnapshotParser.parse(frame, false, "IPv6 regression fixture");
+    }
+
+    private static byte[] wireField(int id, int type, int tag, byte[]... parts) {
+        ByteArrayOutputStream payload = new ByteArrayOutputStream();
+        for (byte[] part : parts) payload.writeBytes(part);
+        return ByteBuffer.allocate(8 + payload.size()).putInt(payload.size()).put((byte) type).put((byte) 0)
+                .put((byte) tag).put((byte) id).put(payload.toByteArray()).array();
     }
 
     private static RadminBackend.RadminSnapshot snapshot(RadminBackend.ServiceState state, List<RadminBackend.Network> networks) {

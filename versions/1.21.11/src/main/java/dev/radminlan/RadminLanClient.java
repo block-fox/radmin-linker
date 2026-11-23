@@ -34,7 +34,14 @@ public final class RadminLanClient implements ClientModInitializer {
         LanWorldsProvider.register();
         refreshSnapshot();
         int[] ticksSinceRefresh = {0};
+        int[] ticksSinceTelemetry = {0};
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            // This is a local cache read. Service events reach both the
+            // management screen and room integrations without another request.
+            if (CONFIG.autoRefresh && ++ticksSinceTelemetry[0] >= 2) {
+                ticksSinceTelemetry[0] = 0;
+                publishSnapshot(BACKEND.latestSnapshot());
+            }
             // The management screen owns its refresh cadence while open.
             // Reset the background timer while paused so leaving the screen
             // does not immediately repeat its most recent request.
@@ -58,7 +65,10 @@ public final class RadminLanClient implements ClientModInitializer {
         if (BACKEND == null || !SNAPSHOT_REQUEST_PENDING.compareAndSet(false, true)) return;
         try {
             BACKEND.snapshot().whenComplete((snapshot, error) -> {
-                if (error == null && snapshot != null) publishSnapshot(snapshot);
+                if (error == null && snapshot != null) {
+                    RadminBackend.RadminSnapshot latest = BACKEND.latestSnapshot();
+                    publishSnapshot(latest == null ? snapshot : latest);
+                }
                 SNAPSHOT_REQUEST_PENDING.set(false);
             });
         } catch (RuntimeException ignored) {

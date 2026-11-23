@@ -12,6 +12,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 
 /** Java implementation of the official Radmin VPN control-pipe snapshot and command paths. */
 public final class PipeRadminBackend implements RadminBackend {
@@ -30,12 +31,42 @@ public final class PipeRadminBackend implements RadminBackend {
     /** Coalesces overlapping UI refreshes while keeping the snapshot uncached after completion. */
     private final AtomicReference<CompletableFuture<RadminSnapshot>> snapshotInFlight = new AtomicReference<>();
     private volatile boolean closed;
-    private volatile boolean pipeCanWrite = true;
+    private volatile boolean pipeCanWrite;
+    private volatile SnapshotView snapshotView;
+    private SnapshotView enrichedView;
+    private long enrichedRevision = Long.MIN_VALUE;
+    private RadminSnapshot enrichedSnapshot;
+    private long subscriptionEpoch;
+
+    private record SnapshotView(RadminSnapshot snapshot, long startedAt) {}
 
     public PipeRadminBackend(RadminConfig config) {
         this.config = config;
         this.pipe = new RadminPipeClient(config.pipeName);
-        this.pipe.startPeerUpdates(peerTelemetry::accept, peerTelemetry::clear);
+        this.pipe.startPeerUpdates(peerTelemetry::accept, () -> {
+            synchronized (peerTelemetry) {
+                peerTelemetry.clear();
+                subscriptionEpoch++;
+                if (!closed) {
+                    pipeCanWrite = false;
+                    snapshotView = new SnapshotView(RadminSnapshot.unavailable("Radmin update subscription disconnected"), System.nanoTime());
+                }
+            }
+        });
+    }
+
+    @Override public synchronized RadminSnapshot latestSnapshot() {
+        SnapshotView view = snapshotView;
+        if (view == null || closed) return null;
+        synchronized (peerTelemetry) {
+            long revision = peerTelemetry.revision();
+            if (view != enrichedView || revision != enrichedRevision) {
+                enrichedSnapshot = peerTelemetry.enrich(view.snapshot(), view.startedAt());
+                enrichedView = view;
+                enrichedRevision = peerTelemetry.revision();
+            }
+        }
+        return enrichedSnapshot;
     }
 
     @Override public CompletableFuture<RadminSnapshot> snapshot() {
@@ -67,14 +98,34 @@ public final class PipeRadminBackend implements RadminBackend {
 
     private RadminSnapshot readSnapshot() {
         if (closed) return RadminSnapshot.unavailable("Backend closed");
+        long startedAt = System.nanoTime();
+        long epoch;
+        synchronized (peerTelemetry) { epoch = subscriptionEpoch; }
+        RadminSnapshot snapshot;
+        boolean canWrite;
+        byte[] snapshotBytes = null;
         try {
             RadminPipeClient.ReadResult result = pipe.readInitialFrames(
                     Duration.ofMillis(Math.max(1000, config.pipeTimeoutMs)));
-            pipeCanWrite = result.canWrite();
-            return peerTelemetry.enrich(RadminSnapshotParser.parse(result.bytes(), result.canWrite(), result.transport()));
+            canWrite = result.canWrite();
+            snapshotBytes = result.bytes();
+            snapshot = RadminSnapshotParser.parse(snapshotBytes, canWrite, result.transport());
         } catch (Exception e) {
-            return RadminSnapshot.unavailable(message(e));
+            canWrite = false;
+            snapshotBytes = null;
+            snapshot = RadminSnapshot.unavailable(message(e));
         }
+        synchronized (peerTelemetry) {
+            // A completed request from the previous subscription must not
+            // resurrect peers or write capability after a service disconnect.
+            if (!closed && epoch == subscriptionEpoch) {
+                if (snapshotBytes != null) peerTelemetry.acceptSnapshot(snapshotBytes, startedAt);
+                pipeCanWrite = canWrite;
+                snapshotView = new SnapshotView(snapshot, startedAt);
+            }
+        }
+        RadminSnapshot latest = latestSnapshot();
+        return latest == null ? RadminSnapshot.unavailable("Backend closed") : latest;
     }
 
     private static String message(Exception e) {
@@ -85,7 +136,7 @@ public final class PipeRadminBackend implements RadminBackend {
         return text;
     }
 
-    @Override public boolean supportsWrite() { return pipeCanWrite; }
+    @Override public boolean supportsWrite() { return !closed && pipeCanWrite; }
 
     @Override public CompletableFuture<Boolean> createNetwork(String name, String password) {
         return send(RadminCommandWire.create(name, password));
@@ -134,6 +185,7 @@ public final class PipeRadminBackend implements RadminBackend {
                 // that are already joined locally.
                 byte[] response = pipe.sendCommandAndReadSnapshot(RadminCommandWire.enumPublicNetworks(""), timeout);
                 RadminPipeClient.ReadResult joinedFrames = pipe.readInitialFrames(timeout);
+                pipeCanWrite = joinedFrames.canWrite();
                 RadminBackend.RadminSnapshot joinedSnapshot = RadminSnapshotParser.parse(
                         joinedFrames.bytes(), joinedFrames.canWrite(), joinedFrames.transport());
                 List<String> joinedNames = joinedSnapshot.networks().stream()
@@ -250,31 +302,45 @@ public final class PipeRadminBackend implements RadminBackend {
     }
 
     @Override public CompletableFuture<Boolean> leaveNetworkByGuid(String guid) {
-        return send(RadminCommandWire.leave(guid));
+        return send(() -> RadminCommandWire.leave(guid));
     }
 
     @Override public CompletableFuture<Boolean> deleteNetwork(String guid) {
-        return send(RadminCommandWire.delete(guid));
+        return send(() -> RadminCommandWire.delete(guid));
     }
 
     @Override public CompletableFuture<Boolean> setNetworkEnabled(String guid, boolean enabled) {
-        return send(RadminCommandWire.setEnabled(guid, enabled));
+        return send(() -> RadminCommandWire.setEnabled(guid, enabled));
     }
 
     @Override public CompletableFuture<Boolean> kickPeer(String guid, long nodeId, String networkName) {
-        return send(RadminCommandWire.kick(guid, nodeId, networkName));
+        return send(() -> RadminCommandWire.kick(guid, nodeId, networkName));
+    }
+
+    private CompletableFuture<Boolean> send(Supplier<byte[]> command) {
+        if (closed) return CompletableFuture.completedFuture(false);
+        try {
+            return send(command.get());
+        } catch (IllegalArgumentException invalid) {
+            return CompletableFuture.completedFuture(false);
+        }
     }
 
     private CompletableFuture<Boolean> send(byte[] command) {
-        return CompletableFuture.supplyAsync(() -> {
-            if (closed) return false;
-            try {
-                pipe.sendCommand(command);
-                return true;
-            } catch (Exception ignored) {
-                return false;
-            }
-        }, executor);
+        if (closed) return CompletableFuture.completedFuture(false);
+        try {
+            return CompletableFuture.supplyAsync(() -> {
+                if (closed) return false;
+                try {
+                    pipe.sendCommand(command);
+                    return true;
+                } catch (Exception ignored) {
+                    return false;
+                }
+            }, executor);
+        } catch (RuntimeException rejected) {
+            return CompletableFuture.completedFuture(false);
+        }
     }
     @Override public void close() { closed = true; pipe.close(); executor.shutdownNow(); }
 }

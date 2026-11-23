@@ -4,6 +4,8 @@ LanWorlds 与 RadminLAN 不编译依赖对方的类。RadminLAN 0.3.0 在 Fabric
 
 值类型为 `Function<String, Map<String, Object>>`。输入为房间主机 IP，不带端口；只匹配服务 READY 快照中用户的虚拟 IPv4/IPv6 地址。未匹配或服务不可用返回空 Map。提供方按快照缓存查询，避免每帧遍历成员。
 
+IPv6 按数值规范化，压缩、展开、前导零、大小写、方括号和嵌入 IPv4 尾段的等价写法使用相同查询缓存。地址匹配不进行 DNS 查询；带端口或不同作用域后缀的输入不会当作无后缀地址匹配。
+
 | 字段 | 类型 | 内容 |
 | --- | --- | --- |
 | name | String | 用户名 |

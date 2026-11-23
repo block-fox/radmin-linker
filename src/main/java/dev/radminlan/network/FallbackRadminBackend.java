@@ -2,11 +2,13 @@ package dev.radminlan.network;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.List;
+import java.util.function.Supplier;
 
 /** Uses the pipe first and falls back to the configured CLI when the pipe is unavailable. */
 final class FallbackRadminBackend implements RadminBackend {
     private final RadminBackend primary;
     private final RadminBackend fallback;
+    private volatile RadminBackend snapshotSource;
 
     FallbackRadminBackend(RadminBackend primary, RadminBackend fallback) {
         this.primary = primary;
@@ -15,24 +17,62 @@ final class FallbackRadminBackend implements RadminBackend {
 
     @Override
     public CompletableFuture<RadminSnapshot> snapshot() {
-        return primary.snapshot().thenCompose(result -> {
+        return readSnapshot(primary).thenCompose(result -> {
             if (result.state() == ServiceState.READY || result.state() == ServiceState.DISABLED) {
+                snapshotSource = primary;
                 return CompletableFuture.completedFuture(result);
             }
-            return fallback.snapshot().thenApply(cli -> cli.state() == ServiceState.READY ? cli : result);
+            return readSnapshot(fallback).thenApply(cli -> {
+                snapshotSource = cli.state() == ServiceState.READY ? fallback : primary;
+                return cli.state() == ServiceState.READY ? cli : result;
+            });
         });
     }
 
+    @Override public RadminSnapshot latestSnapshot() {
+        RadminBackend source = snapshotSource;
+        return source == null ? null : source.latestSnapshot();
+    }
+
     @Override public CompletableFuture<Boolean> leaveNetwork(String name) {
-        return primary.leaveNetwork(name).thenCompose(ok -> ok
-                ? CompletableFuture.completedFuture(true)
-                : fallback.leaveNetwork(name));
+        if (name == null || name.isBlank()) return CompletableFuture.completedFuture(false);
+        return leaveWithFallback(() -> primary.leaveNetwork(name), () -> fallback.leaveNetwork(name));
+    }
+
+    @Override public CompletableFuture<Boolean> leaveNetwork(Network network) {
+        if (network == null) return CompletableFuture.completedFuture(false);
+        return leaveWithFallback(() -> primary.leaveNetwork(network), () -> fallback.leaveNetwork(network));
     }
 
     @Override public CompletableFuture<Boolean> leaveNetworkByGuid(String guid) {
-        return primary.leaveNetworkByGuid(guid).thenCompose(ok -> ok
-                ? CompletableFuture.completedFuture(true)
-                : fallback.leaveNetwork(guid));
+        if (guid == null || guid.isBlank()) return CompletableFuture.completedFuture(false);
+        // A GUID alone cannot be translated to the CLI's network-name argument.
+        return leaveWithFallback(() -> primary.leaveNetworkByGuid(guid), () -> fallback.leaveNetworkByGuid(guid));
+    }
+
+    private static CompletableFuture<Boolean> leaveWithFallback(Supplier<CompletableFuture<Boolean>> first,
+                                                                 Supplier<CompletableFuture<Boolean>> second) {
+        return attemptLeave(first).thenCompose(ok -> ok ? CompletableFuture.completedFuture(true) : attemptLeave(second));
+    }
+
+    private static CompletableFuture<Boolean> attemptLeave(Supplier<CompletableFuture<Boolean>> request) {
+        try {
+            CompletableFuture<Boolean> result = request.get();
+            return result == null ? CompletableFuture.completedFuture(false)
+                    : result.handle((ok, error) -> error == null && Boolean.TRUE.equals(ok));
+        } catch (RuntimeException ignored) {
+            return CompletableFuture.completedFuture(false);
+        }
+    }
+
+    private static CompletableFuture<RadminSnapshot> readSnapshot(RadminBackend backend) {
+        try {
+            CompletableFuture<RadminSnapshot> request = backend.snapshot();
+            if (request != null) return request.handle((result, error) -> error == null && result != null
+                    ? result : RadminSnapshot.unavailable("Radmin snapshot unavailable"));
+        } catch (RuntimeException ignored) {
+        }
+        return CompletableFuture.completedFuture(RadminSnapshot.unavailable("Radmin snapshot unavailable"));
     }
 
     @Override public CompletableFuture<Boolean> createNetwork(String name, String password) {

@@ -10,6 +10,7 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -105,7 +106,57 @@ public final class LanWorldsProvider implements Function<String, Map<String, Obj
     private static String normalizeHost(String host) {
         String value = safe(host).trim();
         if (value.startsWith("[") && value.endsWith("]")) value = value.substring(1, value.length() - 1);
-        return value.toLowerCase(Locale.ROOT);
+        value = value.toLowerCase(Locale.ROOT);
+        if (value.indexOf(':') < 0) return value;
+        int scope = value.indexOf('%');
+        String suffix = scope < 0 ? "" : value.substring(scope);
+        String address = normalizeIpv6(scope < 0 ? value : value.substring(0, scope));
+        return address.isEmpty() ? "" : address + suffix;
+    }
+
+    /** Canonicalizes only numeric literals, without resolving names or contacting DNS. */
+    private static String normalizeIpv6(String value) {
+        if (value.indexOf('.') >= 0) {
+            int separator = value.lastIndexOf(':');
+            String[] octets = value.substring(separator + 1).split("\\.", -1);
+            if (octets.length != 4) return "";
+            int ipv4 = 0;
+            for (String octet : octets) {
+                if (octet.isEmpty() || octet.length() > 3) return "";
+                int number = 0;
+                for (int index = 0; index < octet.length(); index++) {
+                    char digit = octet.charAt(index);
+                    if (digit < '0' || digit > '9') return "";
+                    number = number * 10 + digit - '0';
+                }
+                if (number > 255) return "";
+                ipv4 = (ipv4 << 8) | number;
+            }
+            value = value.substring(0, separator + 1) + Integer.toHexString(ipv4 >>> 16)
+                    + ":" + Integer.toHexString(ipv4 & 0xffff);
+        }
+        int compression = value.indexOf("::");
+        if (compression >= 0 && value.indexOf("::", compression + 2) >= 0) return "";
+        String before = compression < 0 ? value : value.substring(0, compression);
+        String after = compression < 0 ? "" : value.substring(compression + 2);
+        String[] left = before.isEmpty() ? new String[0] : before.split(":", -1);
+        String[] right = after.isEmpty() ? new String[0] : after.split(":", -1);
+        int count = left.length + right.length;
+        if (compression < 0 ? count != 8 : count >= 8) return "";
+        String[] groups = new String[8];
+        Arrays.fill(groups, "0");
+        System.arraycopy(left, 0, groups, 0, left.length);
+        System.arraycopy(right, 0, groups, groups.length - right.length, right.length);
+        for (int index = 0; index < groups.length; index++) {
+            String group = groups[index];
+            if (group.isEmpty() || group.length() > 4) return "";
+            for (int character = 0; character < group.length(); character++) {
+                char digit = group.charAt(character);
+                if (!(digit >= '0' && digit <= '9' || digit >= 'a' && digit <= 'f')) return "";
+            }
+            groups[index] = Integer.toHexString(Integer.parseInt(group, 16));
+        }
+        return String.join(":", groups);
     }
 
     private static String safe(String value) { return value == null ? "" : value; }

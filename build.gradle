@@ -111,3 +111,5 @@ if (localRuntime) {
         into(layout.buildDirectory.dir("dev-libraries"))
     }
 }
+
+apply from: 'gradle/core-integration.gradle'

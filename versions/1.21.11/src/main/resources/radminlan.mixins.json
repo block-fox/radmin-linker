@@ -4,7 +4,7 @@
   "package": "dev.radminlan.mixin",
   "compatibilityLevel": "JAVA_21",
   "client": [
-    "MultiplayerScreenMixin"
+    "MultiplayerScreenMixin"${coreMixins}
   ],
   "injectors": {
     "defaultRequire": 1

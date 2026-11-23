@@ -59,6 +59,7 @@ public final class WindowsCliBackend implements RadminBackend {
 
     private RadminSnapshot readSnapshot() {
             if (closed) return RadminSnapshot.unavailable("Backend closed");
+            if (!config.enableCli) return RadminSnapshot.unavailable("CLI integration disabled in config");
             if (config.radminExecutable == null || config.radminExecutable.isBlank()) {
                 return RadminSnapshot.unavailable("Set the Radmin executable path in config");
             }
@@ -101,27 +102,46 @@ public final class WindowsCliBackend implements RadminBackend {
 
     @Override public CompletableFuture<Boolean> createNetwork(String name, String password) { return command("network", "create", name, password); }
     @Override public CompletableFuture<Boolean> joinNetwork(String name, String password) { return command("network", "join", name, password); }
-    @Override public CompletableFuture<Boolean> leaveNetwork(String name) { return command("network", "leave", name); }
+    @Override public CompletableFuture<Boolean> leaveNetwork(String name) {
+        return name == null || name.isBlank() ? CompletableFuture.completedFuture(false) : command("network", "leave", name);
+    }
+    @Override public CompletableFuture<Boolean> leaveNetwork(Network network) {
+        return network == null ? CompletableFuture.completedFuture(false) : leaveNetwork(network.name());
+    }
+
+    @Override public boolean supportsWrite() {
+        if (closed || !config.enableCli || config.radminExecutable == null || config.radminExecutable.isBlank()) return false;
+        try {
+            return Files.isRegularFile(Path.of(config.radminExecutable));
+        } catch (RuntimeException ignored) {
+            return false;
+        }
+    }
 
     private CompletableFuture<Boolean> command(String... args) {
-        return CompletableFuture.supplyAsync(() -> {
-            if (closed || config.radminExecutable == null || config.radminExecutable.isBlank()) return false;
-            try {
-                List<String> command = new ArrayList<>();
-                command.add(config.radminExecutable);
-                command.addAll(List.of(args));
-                Process process = new ProcessBuilder(command)
-                        .redirectErrorStream(true)
-                        .redirectOutput(ProcessBuilder.Redirect.DISCARD)
-                        .start();
-                boolean finished = process.waitFor(Math.max(1000, config.queryTimeoutMs), TimeUnit.MILLISECONDS);
-                if (!finished) {
-                    process.destroyForcibly();
-                    return false;
-                }
-                return process.exitValue() == 0;
-            } catch (Exception ignored) { return false; }
-        }, executor);
+        if (!supportsWrite()) return CompletableFuture.completedFuture(false);
+        try {
+            return CompletableFuture.supplyAsync(() -> {
+                if (!supportsWrite()) return false;
+                try {
+                    List<String> command = new ArrayList<>();
+                    command.add(config.radminExecutable);
+                    command.addAll(List.of(args));
+                    Process process = new ProcessBuilder(command)
+                            .redirectErrorStream(true)
+                            .redirectOutput(ProcessBuilder.Redirect.DISCARD)
+                            .start();
+                    boolean finished = process.waitFor(Math.max(1000, config.queryTimeoutMs), TimeUnit.MILLISECONDS);
+                    if (!finished) {
+                        process.destroyForcibly();
+                        return false;
+                    }
+                    return process.exitValue() == 0;
+                } catch (Exception ignored) { return false; }
+            }, executor);
+        } catch (RuntimeException rejected) {
+            return CompletableFuture.completedFuture(false);
+        }
     }
 
     private static List<RadminBackend.Network> parseNetworks(List<String> lines) {

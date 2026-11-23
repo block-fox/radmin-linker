@@ -47,6 +47,7 @@
   "screen.radminlan.request_pending": "正在发送请求…",
   "screen.radminlan.request_sent": "请求已发送",
   "screen.radminlan.request_failed": "请求发送失败",
+  "screen.radminlan.batch_result": "批量操作：成功 %s 项，失败 %s 项",
   "screen.radminlan.refreshed": "已刷新",
   "screen.radminlan.peer_blocked": "用户已屏蔽",
   "screen.radminlan.public_network_search_hint": "搜索公共网络",
@@ -191,5 +192,14 @@
   "screen.radminlan.settings.auto_refresh_label": "自动刷新",
   "screen.radminlan.settings.auto_refresh_description": "定时更新网络和用户状态",
   "screen.radminlan.settings.interval_description": "每 1–60 秒更新一次",
-  "screen.radminlan.settings.saved_automatically": "修改后自动保存"
+  "screen.radminlan.settings.saved_automatically": "修改后自动保存",
+  "screen.radminlan.settings.backend": "VPN 后端",
+  "screen.radminlan.settings.backend_description": "切换后重启游戏。Windows 启动时优先使用可用的官方服务，否则使用内置核心。",
+  "screen.radminlan.settings.backend.auto": "自动",
+  "screen.radminlan.settings.backend.core": "内置核心",
+  "screen.radminlan.settings.backend.windows": "Windows 服务",
+  "screen.radminlan.core.not_embedded": "当前安装包未内置 RadminLAN Core。",
+  "screen.radminlan.core.windows_only": "官方服务后端需要 Windows。",
+  "screen.radminlan.core.connecting": "正在连接 Radmin…",
+  "screen.radminlan.core.offline": "内置核心未连接。点击电源按钮连接。"
 }

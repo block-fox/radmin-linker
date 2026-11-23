@@ -54,3 +54,5 @@ jar {
         rename { name -> "${name}_${archiveBaseName}" }
     }
 }
+
+apply from: '../../gradle/core-integration.gradle'

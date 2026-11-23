@@ -3,11 +3,11 @@ import dev.radminlan.config.RadminConfig;
 import dev.radminlan.input.MouseButtons;
 import dev.radminlan.network.RadminBackend;
 import dev.radminlan.ui.RadminSettingsPanel;
+import dev.radminlan.ui.RadminScreen;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.SharedConstants;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.AbstractWidget;
-import net.minecraft.client.input.MouseButtonInfo;
 import net.minecraft.network.chat.Component;
 import java.lang.reflect.Method;
 import java.nio.file.Files;
@@ -23,12 +23,13 @@ class UiRegressionCheck {
         require(MouseButtons.left() == expectedLeft, "left button mapping");
         require(MouseButtons.right() == expectedRight, "right button mapping");
         Button vanilla = Button.builder(Component.literal("Test"), input -> {}).build();
-        Method accepts = AbstractWidget.class.getDeclaredMethod("isValidClickButton", MouseButtonInfo.class);
+        Class<?> clickType = args[0].equals("1.21.1") ? int.class : Class.forName("net.minecraft.client.input.MouseButtonInfo");
+        Method accepts = AbstractWidget.class.getDeclaredMethod("isValidClickButton", clickType);
         accepts.setAccessible(true);
-        require((boolean) accepts.invoke(vanilla, new MouseButtonInfo(MouseButtons.left(), 0)),
-                "left click accepted by the real vanilla widget");
-        require(!(boolean) accepts.invoke(vanilla, new MouseButtonInfo(MouseButtons.right(), 0)),
-                "right click does not activate vanilla actions");
+        Object left = clickType == int.class ? MouseButtons.left() : clickType.getConstructor(int.class, int.class).newInstance(MouseButtons.left(), 0);
+        Object right = clickType == int.class ? MouseButtons.right() : clickType.getConstructor(int.class, int.class).newInstance(MouseButtons.right(), 0);
+        require((boolean) accepts.invoke(vanilla, left), "left click accepted by the real vanilla widget");
+        require(!(boolean) accepts.invoke(vanilla, right), "right click does not activate vanilla actions");
         var empty = new RadminBackend.RadminSnapshot(RadminBackend.ServiceState.READY, "", "", null, "");
         require(empty.networks().isEmpty(), "missing network list is safe for property views");
         var networks = new ArrayList<RadminBackend.Network>();
@@ -44,9 +45,14 @@ class UiRegressionCheck {
         }
         checkRefreshConfiguration(args[0]);
         checkRefreshIntervalInput();
+        checkNetworkSelectionIdentity();
+        checkLiveSelectionIdentity();
+        BatchOperationsRegression.check();
+        BackendFallbackRegression.check();
         ListPreferencesRegression.check();
         ScreenLayoutRegression.check();
         NetworkParsingRegression.check();
+        WireFramingRegression.check();
         LanWorldsProviderRegression.check();
         System.out.println("UI_REGRESSION_OK Minecraft=" + args[0] + " protocol=" + SharedConstants.getProtocolVersion()
             + " left=" + MouseButtons.left() + " right=" + MouseButtons.right());
@@ -107,6 +113,27 @@ class UiRegressionCheck {
         System.out.println("CONFIG_REGRESSION_OK isolatedConfig=" + configFile);
     }
 
+    static void checkNetworkSelectionIdentity() throws Exception {
+        Method key = RadminScreen.class.getDeclaredMethod("networkKey", RadminBackend.Network.class);
+        key.setAccessible(true);
+        var alpha = new RadminBackend.Network("Alpha", "", "", List.of());
+        var beta = new RadminBackend.Network("Beta", "", "", List.of());
+        require(!key.invoke(null, alpha).equals(key.invoke(null, beta)),
+                "name-only CLI networks can be selected independently");
+        require(key.invoke(null, alpha).equals(key.invoke(null, new RadminBackend.Network("Alpha", null, "", List.of()))),
+                "missing GUID representations preserve the same network selection");
+        require(key.invoke(null, new RadminBackend.Network("Renamed", "abc", "", List.of())).equals("abc"),
+                "pipe-backed network selection keeps its GUID across renames");
+
+        RadminConfig config = new RadminConfig();
+        config.disabledNetworks.add("abc");
+        require(config.isNetworkDisabled("ABC", null), "missing service flag uses the local disabled fallback");
+        require(!config.isNetworkDisabled("ABC", true), "explicit service enable overrides a stale local disabled flag");
+        require(config.isNetworkDisabled("other", false), "explicit service disable overrides the local fallback");
+        require(!config.isNetworkDisabled("other", null), "unrecorded network remains enabled when the service omits its flag");
+        System.out.println("NETWORK_SELECTION_REGRESSION_OK cliIdentity=true serviceState=true");
+    }
+
     static void checkRefreshIntervalInput() throws Exception {
         for (int seconds = 1; seconds <= 60; seconds++) {
             require(Integer.valueOf(seconds).equals(RadminSettingsPanel.parseInterval(Integer.toString(seconds))),
@@ -117,6 +144,37 @@ class UiRegressionCheck {
                     "settings screen rejects invalid interval text: " + invalid);
         }
         System.out.println("INTERVAL_INPUT_REGRESSION_OK validRange=1..60 invalidCases=12");
+    }
+
+    static void checkLiveSelectionIdentity() throws Exception {
+        Method network = RadminScreen.class.getDeclaredMethod("resolveNetwork",
+                RadminBackend.Network.class, RadminBackend.RadminSnapshot.class);
+        Method peer = RadminScreen.class.getDeclaredMethod("resolvePeer",
+                RadminBackend.Peer.class, RadminBackend.RadminSnapshot.class);
+        network.setAccessible(true);
+        peer.setAccessible(true);
+        var oldPeer = new RadminBackend.Peer("Before", "26.1.2.3", "", "online", 15,
+                true, 101, "", "", "Friends", 1L, "");
+        var updatedPeer = new RadminBackend.Peer("After", "26.1.2.3", "", "offline", -1,
+                false, 101, "", "", "Friends", 1L, "");
+        var elsewhere = new RadminBackend.Peer("After", "26.1.2.3", "", "offline", -1,
+                false, 101, "", "", "Other", 2L, "");
+        var oldNetwork = new RadminBackend.Network("Friends", "abc", "", List.of(oldPeer));
+        var updatedNetwork = new RadminBackend.Network("Friends", "abc", "", List.of(updatedPeer));
+        var current = new RadminBackend.RadminSnapshot(RadminBackend.ServiceState.READY, "", "",
+                List.of(new RadminBackend.Network("Other", "def", "", List.of(elsewhere)), updatedNetwork), "");
+        require(network.invoke(null, oldNetwork, current) == updatedNetwork,
+                "live updates retain selected network by its key");
+        require(peer.invoke(null, oldPeer, current) == updatedPeer,
+                "selection and context bind to new telemetry while preserving the member's network role");
+        require(network.invoke(null, oldNetwork, RadminBackend.RadminSnapshot.unavailable("disconnect")) == null,
+                "removed networks cannot leave stale context actions");
+        require(peer.invoke(null, oldPeer, RadminBackend.RadminSnapshot.unavailable("disconnect")) == null,
+                "removed peers cannot leave stale context actions");
+        require(peer.invoke(null, oldPeer, new RadminBackend.RadminSnapshot(RadminBackend.ServiceState.READY,
+                "", "", List.of(new RadminBackend.Network("Other", "def", "", List.of(elsewhere))), "")) == elsewhere,
+                "a member still present in another network remains selected");
+        System.out.println("LIVE_SELECTION_REGRESSION_OK network=true peer=true context=true");
     }
 
     static void require(boolean condition, String message) {

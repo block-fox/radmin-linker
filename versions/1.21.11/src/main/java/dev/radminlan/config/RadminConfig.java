@@ -25,6 +25,13 @@ public final class RadminConfig {
     public String pipeName = "\\\\.\\pipe\\RadminVpnGuiChannel";
     public int pipeTimeoutMs = 5000;
     public boolean enableCli = true;
+    public ConnectionBackend connectionBackend = ConnectionBackend.AUTO;
+
+    public enum ConnectionBackend { AUTO, CORE, WINDOWS }
+
+    public ConnectionBackend getConnectionBackend() {
+        return connectionBackend == null ? ConnectionBackend.AUTO : connectionBackend;
+    }
     public boolean autoRefresh = true;
     public int refreshIntervalSeconds = 2;
     public String networkViewMode = "LIST";
@@ -110,6 +117,11 @@ public final class RadminConfig {
 
     public boolean isNetworkDisabled(String guid) {
         return guid != null && disabledNetworks.stream().anyMatch(guid::equalsIgnoreCase);
+    }
+
+    /** A reported service flag takes precedence over the local fallback. */
+    public boolean isNetworkDisabled(String guid, Boolean enabled) {
+        return enabled == null ? isNetworkDisabled(guid) : !enabled;
     }
 
     public void setNetworkDisabled(String guid, boolean disabled) {

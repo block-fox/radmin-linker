@@ -1,6 +1,6 @@
 allprojects {
     afterEvaluate {
-        def regressionSources = file(project.minecraft_version.toString() == '1.21.11'
+        def regressionSources = file(project.minecraft_version.toString().startsWith('1.21.')
                 ? '../../tests/regression' : 'tests/regression')
         def regressionClasses = layout.buildDirectory.dir('classes/regression')
         def regressionWork = file('.tmp/regression-runtime').absolutePath
@@ -9,7 +9,7 @@ allprojects {
             source = fileTree(regressionSources) { include '*.java' }
             classpath = sourceSets.main.runtimeClasspath
             destinationDirectory = regressionClasses
-            options.release = project.minecraft_version.toString() == '1.21.11' ? 21 : 25
+            options.release = project.minecraft_version.toString().startsWith('1.21.') ? 21 : 25
         }
         tasks.register('uiRegressionCheck', JavaExec) {
             dependsOn tasks.named('compileUiRegression')

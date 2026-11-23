@@ -19,7 +19,7 @@ public final class RadminSettingsPanel {
     private static final int SECTION_HEIGHT = 24;
     private static final int ROW_HEIGHT = 56;
     private static final int SECTION_GAP = 12;
-    private static final int CONTENT_HEIGHT = SECTION_HEIGHT * 3 + ROW_HEIGHT * 4 + SECTION_GAP * 2 + 22;
+    private static final int CONTENT_HEIGHT = SECTION_HEIGHT * 3 + ROW_HEIGHT * 5 + SECTION_GAP * 2 + 22;
 
     private Font font;
     private int panelX;
@@ -31,6 +31,7 @@ public final class RadminSettingsPanel {
     private boolean intervalValid = true;
     private Button positionButton;
     private Button cliButton;
+    private Button backendButton;
     private Button autoRefreshButton;
     private EditBox intervalBox;
     private List<AbstractWidget> widgets = List.of();
@@ -52,6 +53,7 @@ public final class RadminSettingsPanel {
 
         positionButton.setMessage(positionValue());
         cliButton.setMessage(toggleValue(config().enableCli));
+        backendButton.setMessage(backendValue());
         autoRefreshButton.setMessage(toggleValue(config().autoRefresh));
         sections.clear();
         rows.clear();
@@ -59,6 +61,7 @@ public final class RadminSettingsPanel {
         y = addSection("screen.radminlan.settings.interface", y);
         y = addRow("screen.radminlan.button_position", "screen.radminlan.settings.position_description", positionButton, y);
         y = addSection("screen.radminlan.settings.connection", y + SECTION_GAP);
+        y = addRow("screen.radminlan.settings.backend", "screen.radminlan.settings.backend_description", backendButton, y);
         y = addRow("screen.radminlan.settings.cli_label", "screen.radminlan.settings.cli_description", cliButton, y);
         y = addSection("screen.radminlan.settings.refresh", y + SECTION_GAP);
         y = addRow("screen.radminlan.settings.auto_refresh_label", "screen.radminlan.settings.auto_refresh_description", autoRefreshButton, y);
@@ -128,6 +131,15 @@ public final class RadminSettingsPanel {
             button.setMessage(positionValue());
             save();
         }).bounds(0, 0, 100, 20).build();
+        backendButton = Button.builder(backendValue(), button -> {
+            config().connectionBackend = switch (config().getConnectionBackend()) {
+                case AUTO -> RadminConfig.ConnectionBackend.CORE;
+                case CORE -> RadminConfig.ConnectionBackend.WINDOWS;
+                case WINDOWS -> RadminConfig.ConnectionBackend.AUTO;
+            };
+            button.setMessage(backendValue());
+            save();
+        }).bounds(0, 0, 100, 20).build();
         cliButton = Button.builder(toggleValue(config().enableCli), button -> {
             config().enableCli = !config().enableCli;
             button.setMessage(toggleValue(config().enableCli));
@@ -145,7 +157,7 @@ public final class RadminSettingsPanel {
             intervalDraft = value;
             validateInterval(true);
         });
-        widgets = List.of(positionButton, cliButton, autoRefreshButton, intervalBox);
+        widgets = List.of(positionButton, backendButton, cliButton, autoRefreshButton, intervalBox);
     }
 
     private int addSection(String title, int offset) {
@@ -184,6 +196,11 @@ public final class RadminSettingsPanel {
     }
 
     private static RadminConfig config() { return RadminLanClient.CONFIG; }
+
+    private static Component backendValue() {
+        return Component.translatable("screen.radminlan.settings.backend." +
+                config().getConnectionBackend().name().toLowerCase(java.util.Locale.ROOT));
+    }
 
     private static Component toggleValue(boolean enabled) {
         return Component.translatable(enabled ? "screen.radminlan.enabled" : "screen.radminlan.disabled");

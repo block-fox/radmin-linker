@@ -43,18 +43,34 @@ public final class RadminPipeClient implements AutoCloseable {
 
     public RadminPipeClient(String pipeName) { this.pipeName = pipeName; }
 
+    /** Checks the local service without issuing a command or waiting for a response. */
+    static boolean isAvailable(String name) {
+        if (name == null || !name.startsWith("\\\\.\\pipe\\") || name.length() <= 9 || name.indexOf('\0') >= 0) return false;
+        try (WinPipe pipe = WinPipe.open(name, GENERIC_READ)) {
+            pipe.availableBytes();
+            return true;
+        } catch (IOException | RuntimeException | LinkageError unavailable) {
+            return false;
+        }
+    }
+
     /** Keeps the service's unsolicited peer updates flowing between explicit refreshes. Never writes to the pipe. */
     public void startPeerUpdates(Consumer<byte[]> frames, Runnable disconnected) {
         if (closed || !updatesStarted.compareAndSet(false, true)) return;
         updates.execute(() -> {
             while (!closed && !Thread.currentThread().isInterrupted()) {
+                boolean subscribed = false;
                 try (WinPipe connected = WinPipe.open(pipeName, GENERIC_READ)) {
+                    subscribed = true;
                     readUpdates(connected, frames);
                 } catch (IOException | RuntimeException ignored) {
                     // A service restart or unavailable pipe is retried without
                     // retaining measurements from the previous connection.
                 } finally {
-                    disconnected.run();
+                    // An unsuccessful open has no subscription to invalidate.
+                    // In particular, a startup retry must not cancel a valid
+                    // initial query running on the other pipe connection.
+                    if (subscribed) disconnected.run();
                 }
                 if (closed || Thread.currentThread().isInterrupted()) return;
                 try { Thread.sleep(500); }
@@ -155,10 +171,15 @@ public final class RadminPipeClient implements AutoCloseable {
 
     /** Polls the native pipe queue so the timeout does not depend on InputStream.available(). */
     private static byte[] readAvailableBatch(WinPipe pipe, Duration timeout) throws IOException {
-        return readAvailableBatch(pipe, timeout, 120L);
+        return readAvailableBatch(pipe, timeout, 120L, true);
     }
 
     private static byte[] readAvailableBatch(WinPipe pipe, Duration timeout, long quietMillis) throws IOException {
+        return readAvailableBatch(pipe, timeout, quietMillis, false);
+    }
+
+    private static byte[] readAvailableBatch(WinPipe pipe, Duration timeout, long quietMillis,
+                                             boolean initialSnapshot) throws IOException {
         long deadline = System.nanoTime() + timeout.toNanos();
         long lastDataAt = 0;
         ByteArrayOutputStream all = new ByteArrayOutputStream();
@@ -172,7 +193,11 @@ public final class RadminPipeClient implements AutoCloseable {
                 }
                 all.write(chunk);
                 lastDataAt = System.nanoTime();
-            } else if (all.size() > 0 && System.nanoTime() - lastDataAt >= TimeUnit.MILLISECONDS.toNanos(quietMillis)) {
+                if (initialSnapshot) {
+                    byte[] bytes = all.toByteArray();
+                    if (RadminWire.initialSnapshotEnd(bytes) >= 0) return bytes;
+                }
+            } else if (!initialSnapshot && all.size() > 0 && System.nanoTime() - lastDataAt >= TimeUnit.MILLISECONDS.toNanos(quietMillis)) {
                 return all.toByteArray();
             } else {
                 try { Thread.sleep(8); }
@@ -186,6 +211,7 @@ public final class RadminPipeClient implements AutoCloseable {
             throw new IOException("Radmin control pipe opened, but no response bytes arrived within "
                     + timeout.toMillis() + " ms");
         }
+        if (initialSnapshot) throw new IOException("Radmin initial snapshot was incomplete after " + timeout.toMillis() + " ms");
         return all.toByteArray();
     }
 

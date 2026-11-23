@@ -5,9 +5,18 @@ import java.util.concurrent.CompletableFuture;
 
 public interface RadminBackend extends AutoCloseable {
     CompletableFuture<RadminSnapshot> snapshot();
+    /** Latest local subscription view; never opens a pipe or starts a request. Null when unsupported. */
+    default RadminSnapshot latestSnapshot() { return null; }
     CompletableFuture<Boolean> createNetwork(String name, String password);
     CompletableFuture<Boolean> joinNetwork(String name, String password);
     CompletableFuture<Boolean> leaveNetwork(String name);
+    /** Keeps the name available for transports that cannot address a network by GUID. */
+    default CompletableFuture<Boolean> leaveNetwork(Network network) {
+        if (network == null) return CompletableFuture.completedFuture(false);
+        if (network.guid() != null && !network.guid().isBlank()) return leaveNetworkByGuid(network.guid());
+        if (network.name() == null || network.name().isBlank()) return CompletableFuture.completedFuture(false);
+        return leaveNetwork(network.name());
+    }
     default CompletableFuture<List<String>> publicNetworks(String query) {
         return CompletableFuture.failedFuture(new UnsupportedOperationException("Public network enumeration is unavailable"));
     }
@@ -15,6 +24,8 @@ public interface RadminBackend extends AutoCloseable {
     /** Leaves a network by its 16-byte control-pipe GUID. */
     default CompletableFuture<Boolean> leaveNetworkByGuid(String guid) { return CompletableFuture.completedFuture(false); }
     default boolean supportsWrite() { return false; }
+    default boolean supportsAliasChanges() { return true; }
+    default boolean supportsMemberRemoval() { return true; }
     default CompletableFuture<Boolean> setNetworkEnabled(String guid, boolean enabled) { return CompletableFuture.completedFuture(false); }
     default CompletableFuture<Boolean> deleteNetwork(String guid) { return CompletableFuture.completedFuture(false); }
     default CompletableFuture<Boolean> kickPeer(String guid, long nodeId, String networkName) { return CompletableFuture.completedFuture(false); }

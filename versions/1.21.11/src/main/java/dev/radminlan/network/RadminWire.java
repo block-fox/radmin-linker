@@ -12,6 +12,41 @@ public final class RadminWire {
     public static final int MAX_FRAME_SIZE = 64 * 1024 * 1024;
     private RadminWire() {}
 
+    /**
+     * End of the first complete message 34 carrying the initial state, or -1.
+     * Inspect only top-level headers so large snapshots do not need decoding
+     * on every pipe read. Live ping traffic must not postpone this boundary.
+     */
+    public static int initialSnapshotEnd(byte[] bytes) {
+        int frameStart = 0;
+        while (frameStart + 4 <= bytes.length) {
+            int length = readIntLE(bytes, frameStart);
+            if (length <= 0 || length > MAX_FRAME_SIZE || frameStart + 4L + length > bytes.length) return -1;
+            int end = frameStart + 4 + length;
+            int offset = frameStart + 4;
+            boolean initialMessage = false;
+            boolean state = false;
+            while (offset + 8 <= end) {
+                int size = readIntBE(bytes, offset);
+                if (size < 0 || offset + 8L + size > end) return -1;
+                int type = bytes[offset + 4] & 0xff;
+                int tag = bytes[offset + 6] & 0xff;
+                int id = bytes[offset + 7] & 0xff;
+                if (id == 1 && type == 1 && size > 0 && size <= 8) {
+                    long message = 0;
+                    for (int i = offset + 8; i < offset + 8 + size; i++) message = (message << 8) | (bytes[i] & 0xffL);
+                    initialMessage = message == 34;
+                }
+                if (id == 0x20 && type == 0 && tag == 0x13) state = true;
+                offset += 8 + size;
+            }
+            if (offset != end) return -1;
+            if (initialMessage && state) return end;
+            frameStart = end;
+        }
+        return -1;
+    }
+
     public static List<byte[]> splitFrames(byte[] bytes) {
         List<byte[]> frames = new ArrayList<>();
         int offset = 0;

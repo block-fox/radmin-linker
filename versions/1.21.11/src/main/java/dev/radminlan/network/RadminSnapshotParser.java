@@ -225,19 +225,30 @@ public final class RadminSnapshotParser {
         return value == null ? fallback : value;
     }
 
-    /** The official GUI reads online from attribute bit 0 and ping from message 28 / field 0x4D. */
+    /** A0 is context-dependent: profile attributes and CNodeOnlineChanged carry online bit 0. */
     static void collectTelemetry(List<RadminWire.Field> fields, Map<Long, Long> attributes,
                                          Map<Long, Long> latencies) {
+        collectTelemetry(fields, -1, -1, scalar(fields, 0x01), attributes, latencies);
+    }
+
+    private static void collectTelemetry(List<RadminWire.Field> fields, int container, int parent, Long message,
+                                         Map<Long, Long> attributes, Map<Long, Long> latencies) {
         Long nodeId = number(fields, NODE_ID);
         Long flags = scalar(fields, NODE_ATTRIBUTES);
-        if (nodeId != null && flags != null) attributes.put(nodeId, unsignedValue(flags));
-        Long message = scalar(fields, 0x01);
+        boolean onlineAttributes = container == PROFILE_CONTAINER
+                || message != null && message == 7 && parent == 0x1F && container == 0x66;
+        if (onlineAttributes && nodeId != null && (flags != null || container == PROFILE_CONTAINER)) {
+            long value = flags == null ? -1 : unsignedValue(flags);
+            attributes.put(nodeId, value);
+            if (value < 0 || (value & 1) == 0) latencies.put(nodeId, -1L);
+        }
         Long latency = scalar(fields, NODE_LATENCY);
-        if (nodeId != null && message != null && message == LATENCY_MESSAGE && latency != null) {
-            latencies.put(nodeId, unsignedValue(latency));
+        if (container == -1 && nodeId != null && message != null && message == LATENCY_MESSAGE && latency != null) {
+            Long current = attributes.get(nodeId);
+            latencies.put(nodeId, current != null && (current < 0 || (current & 1) == 0) ? -1 : unsignedValue(latency));
         }
         for (RadminWire.Field field : fields) {
-            if (field.isContainer()) collectTelemetry(field.children(), attributes, latencies);
+            if (field.isContainer()) collectTelemetry(field.children(), field.id(), container, message, attributes, latencies);
         }
     }
 

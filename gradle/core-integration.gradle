@@ -1,0 +1,34 @@
+import java.util.zip.ZipFile
+
+// Optional private artifact. Standard builds retain the official Windows backend.
+def coreJarPath = providers.gradleProperty('radminCoreJar').orElse(providers.environmentVariable('RADMIN_CORE_JAR')).getOrNull()
+def coreJar = coreJarPath == null ? null : file(coreJarPath)
+if (coreJar != null) {
+    if (!coreJar.isFile()) throw new GradleException("RadminLAN Core JAR not found: ${coreJar}")
+    new ZipFile(coreJar).withCloseable { zip ->
+        if (zip.getEntry('dev/radminlan/core/CoreSession.class') == null ||
+                zip.getEntry('META-INF/LICENSE-OpenRad') == null) {
+            throw new GradleException('The selected JAR is not a compatible RadminLAN Core artifact')
+        }
+    }
+    def adapterDir = rootProject.file(project.minecraft_version.toString().startsWith('1.21.')
+            ? '../../src/core-integration/java' : 'src/core-integration/java')
+    if (project.minecraft_version == '1.21.1') {
+        sourceSets.main.java.srcDir(new File(adapterDir, 'dev/radminlan/network'))
+        sourceSets.main.java.srcDir('src/core-integration/java')
+    } else {
+        sourceSets.main.java.srcDir(adapterDir)
+    }
+    sourceSets.main.resources.srcDir(new File(adapterDir.parentFile, "resources"))
+    dependencies { implementation files(coreJar) }
+    tasks.named('jar') {
+        from(zipTree(coreJar)) { include 'dev/radminlan/core/**', 'dev/radminlan/vendor/**', 'META-INF/LICENSE-OpenRad' }
+    }
+}
+
+tasks.named('processResources') {
+    inputs.property('embeddedCore', coreJar != null)
+    filesMatching('radminlan.mixins.json') {
+        expand(coreMixins: coreJar == null ? '' : ', "CoreConnectionMixin", "CoreStatusPingerMixin", "CoreServerResolverMixin"')
+    }
+}
