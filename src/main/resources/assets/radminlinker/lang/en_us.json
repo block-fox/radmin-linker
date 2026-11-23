@@ -1,11 +1,11 @@
 {
-  "screen.radminlinker.alias_reconnect": "Nickname saved. Applies on reconnect.",
+  "screen.radminlinker.alias_reconnect": "Nickname saved. Syncs when connected.",
   "screen.radminlinker.settings.animate_label": "Interface animations",
   "screen.radminlinker.settings.animate_description": "Animate menus and page transitions.",
   "screen.radminlinker.settings.animation_ms": "Animation duration (ms)",
   "screen.radminlinker.settings.animation_ms_description": "Enter 50 to 1000. Default is 180 ms.",
   "screen.radminlinker.settings.alias_suffix": "Embedded core name suffix",
-  "screen.radminlinker.settings.alias_suffix_description": "Applies on reconnect. Other Radmin users see the mod label.",
+  "screen.radminlinker.settings.alias_suffix_description": "Other Radmin users see the mod label. Changes sync when connected.",
   "screen.radminlinker.settings.position_managed": "Managed by LanWorlds",
   "screen.radminlinker.settings.position_managed_description": "Change this in LanWorlds → Settings → Radmin button position.",
   "category.radminlan": "Radmin Linker",

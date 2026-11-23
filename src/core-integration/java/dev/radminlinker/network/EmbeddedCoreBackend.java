@@ -16,10 +16,12 @@ import java.util.function.Function;
 
 /** Owns the in-process VPN and adapts its confirmed results to the existing UI. */
 public final class EmbeddedCoreBackend implements RadminCoreProvider, RadminBackend {
+    private static final int MAX_DEVICE_NAME_LENGTH = 64;
     private static final System.Logger LOGGER = System.getLogger("Radmin Linker Core");
     private final CoreSession session = new CoreSession(CoreSession.defaultProfile(), List.of(),
             message -> LOGGER.log(System.Logger.Level.DEBUG, message));
     private final TcpForwarder forwarder = new TcpForwarder(session);
+    private final boolean android = isAndroid();
     private volatile boolean closed;
     private String coreName = "Radmin Linker";
     private boolean chinese;
@@ -41,7 +43,7 @@ public final class EmbeddedCoreBackend implements RadminCoreProvider, RadminBack
         ServiceState state = closed ? ServiceState.UNAVAILABLE : ready ? ServiceState.READY
                 : phase.equals("FAILED") ? ServiceState.ERROR : off ? ServiceState.DISABLED : ServiceState.UNAVAILABLE;
         var networks = current.networks().stream().map(network -> new Network(network.name(), network.id(), "",
-                network.peers().stream().map(peer -> new Peer(peer.name(), peer.address(), "",
+                network.peers().stream().filter(peer -> !peer.local()).map(peer -> new Peer(peer.name(), peer.address(), "",
                         peer.online() ? "online" : peer.presenceKnown() ? "offline" : "unknown", peer.latencyMs(), peer.online(), peer.id(), "", peer.connectionType(),
                         network.name(), peer.role() == null ? null : peer.role().longValue(), "")).toList(),
                 null, network.enabled(), network.role() == null ? null : network.role() == 2,
@@ -52,6 +54,14 @@ public final class EmbeddedCoreBackend implements RadminCoreProvider, RadminBack
         viewIdentity = current;
         statusIdentity = status;
         return cached = new RadminSnapshot(state, coreName, status.vip(), networks, detail, ready, "Radmin Linker Core", !off);
+    }
+
+    @Override public void setPublishedRoom(int port, String motd) {
+        try {
+            session.setPublishedRoom(port, motd);
+        } catch (IllegalArgumentException invalidMotd) {
+            session.setPublishedRoom(port, "Minecraft LAN");
+        }
     }
 
     @Override public List<LanRoom> lanRooms() {
@@ -77,28 +87,54 @@ public final class EmbeddedCoreBackend implements RadminCoreProvider, RadminBack
             config.coreAlias = playerName == null || playerName.isBlank() ? "Radmin Linker" : playerName;
             config.save();
         }
-        applyAlias(config.coreAlias);
+        refreshLocalIdentity();
+    }
+
+    @Override public synchronized void refreshLocalIdentity() {
+        var config = RadminLinkerClient.CONFIG;
+        if (!closed && config != null && config.coreAlias != null && !config.coreAlias.isBlank())
+            applyAlias(config.coreAlias, config.coreAliasSuffix);
     }
 
     @Override public boolean aliasAppliesOnReconnect() { return true; }
     @Override public boolean supportsAliasChanges() { return !closed; }
 
     @Override public synchronized CompletableFuture<Boolean> setAlias(String alias) {
-        if (closed || alias == null || alias.isBlank() || alias.length() > 64
-                || alias.chars().anyMatch(Character::isISOControl)) return CompletableFuture.completedFuture(false);
-        RadminLinkerClient.CONFIG.coreAlias = alias.strip();
-        RadminLinkerClient.CONFIG.save();
-        applyAlias(RadminLinkerClient.CONFIG.coreAlias);
+        if (closed || alias == null || alias.isBlank() || alias.length() > MAX_DEVICE_NAME_LENGTH
+                || alias.codePoints().anyMatch(Character::isISOControl)) return CompletableFuture.completedFuture(false);
+        var config = RadminLinkerClient.CONFIG;
+        String name = alias.strip();
+        try {
+            applyAlias(name, config.coreAliasSuffix);
+        } catch (IllegalArgumentException invalid) {
+            return CompletableFuture.completedFuture(false);
+        }
+        config.coreAlias = name;
+        config.save();
         return CompletableFuture.completedFuture(true);
     }
 
-    private void applyAlias(String alias) {
+    private void applyAlias(String alias, boolean includeSuffix) {
+        String suffix = "";
+        if (includeSuffix) {
+            suffix = chinese ? (android ? " （安卓，通过radmin linker模组）" : " （通过radmin linker模组）")
+                    : (android ? " (Android, via Radmin Linker mod)" : " (via Radmin Linker mod)");
+        }
+        int limit = MAX_DEVICE_NAME_LENGTH - suffix.length();
+        if (alias.length() > limit && Character.isHighSurrogate(alias.charAt(limit - 1))) limit--;
+        String advertisedAlias = alias.substring(0, Math.min(alias.length(), limit)).stripTrailing();
+        session.setAdvertisedName(advertisedAlias + suffix);
         coreName = alias;
         viewIdentity = null;
         statusIdentity = null;
-        String suffix = !RadminLinkerClient.CONFIG.coreAliasSuffix ? "" : chinese
-                ? "（使用radminlan模组）" : " (playing with radminlan mod)";
-        session.setAdvertisedName(alias + suffix);
+    }
+
+    private static boolean isAndroid() {
+        if (System.getProperty("os.name", "").equalsIgnoreCase("Android")
+                || System.getProperty("java.runtime.name", "").equalsIgnoreCase("Android Runtime")) return true;
+        // Android Minecraft launchers can run OpenJDK and report their OS as Linux.
+        return java.nio.file.Files.isRegularFile(java.nio.file.Path.of("/system/bin/getprop"))
+                && java.nio.file.Files.isRegularFile(java.nio.file.Path.of("/system/framework/framework.jar"));
     }
     @Override public boolean supportsMemberRemoval() { return supportsWrite(); }
     @Override public boolean supportsWrite() { return !closed && session.view().status().phase().equals("CONNECTED"); }

@@ -199,6 +199,7 @@ public final class RadminSettingsPanel {
             config().coreAliasSuffix = !config().coreAliasSuffix;
             button.setMessage(toggleValue(config().coreAliasSuffix));
             config().save();
+            RadminLinkerClient.BACKEND.refreshLocalIdentity();
         }).build();
         widgets = List.of(positionButton, animationButton, durationBox, backendButton, suffixButton, cliButton, autoRefreshButton, intervalBox);
     }

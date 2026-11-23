@@ -37,7 +37,17 @@ public final class RadminLinkerClient implements ClientModInitializer {
         refreshSnapshot();
         int[] ticksSinceRefresh = {0};
         int[] ticksSinceTelemetry = {0};
+        int[] publishedPort = {0};
+        String[] publishedMotd = {""};
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            var server = client.getSingleplayerServer();
+            int port = server != null && server.isPublished() ? server.getPort() : 0;
+            String motd = port > 0 ? server.getMotd() : "";
+            if (port != publishedPort[0] || !java.util.Objects.equals(motd, publishedMotd[0])) {
+                BACKEND.setPublishedRoom(Math.max(0, port), motd);
+                publishedPort[0] = port;
+                publishedMotd[0] = motd;
+            }
             // This is a local cache read. Service events reach both the
             // management screen and room integrations without another request.
             if (CONFIG.autoRefresh && ++ticksSinceTelemetry[0] >= 2) {

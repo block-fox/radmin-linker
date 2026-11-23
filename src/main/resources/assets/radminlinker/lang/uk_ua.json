@@ -1,11 +1,11 @@
 {
-  "screen.radminlinker.alias_reconnect": "Псевдонім збережено. Застосовується при повторному підключенні.",
+  "screen.radminlinker.alias_reconnect": "Псевдонім збережено. Синхронізується за наявності з’єднання.",
   "screen.radminlinker.settings.animate_label": "Інтерфейс анімації",
   "screen.radminlinker.settings.animate_description": "Анімуйте меню та переходи сторінок.",
   "screen.radminlinker.settings.animation_ms": "Тривалість анімації (мс)",
   "screen.radminlinker.settings.animation_ms_description": "Введіть від 50 до 1000. За замовчуванням 180 мс.",
   "screen.radminlinker.settings.alias_suffix": "Вбудований суфікс імені ядра",
-  "screen.radminlinker.settings.alias_suffix_description": "Застосовується при повторному підключенні. Інші користувачі Radmin бачать мітку мода.",
+  "screen.radminlinker.settings.alias_suffix_description": "Інші користувачі Radmin бачать мітку мода. Зміни синхронізуються за наявності з’єднання.",
   "screen.radminlinker.settings.position_managed": "Керується LanWorlds",
   "screen.radminlinker.settings.position_managed_description": "Змініть це в LanWorlds → Налаштування → Положення кнопки Radmin.",
   "category.radminlan": "Radmin Linker",

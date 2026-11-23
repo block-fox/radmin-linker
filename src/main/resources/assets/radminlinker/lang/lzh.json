@@ -1,11 +1,11 @@
 {
-  "screen.radminlinker.alias_reconnect": "暱稱已存，下次相通時更新。",
+  "screen.radminlinker.alias_reconnect": "暱稱已存，相通乃行。",
   "screen.radminlinker.settings.animate_label": "介面動畫",
   "screen.radminlinker.settings.animate_description": "啟選單展開和分頁滑動效果。",
   "screen.radminlinker.settings.animation_ms": "動畫歷時（毫秒）",
   "screen.radminlinker.settings.animation_ms_description": "可輸入 50 至 1000。素設 180 毫秒。",
   "screen.radminlinker.settings.alias_suffix": "內建核心暱稱後綴",
-  "screen.radminlinker.settings.alias_suffix_description": "重新相通後生效。其他 Radmin 用者可看到模組標記。",
+  "screen.radminlinker.settings.alias_suffix_description": "他人可見模組之記。相通乃行。",
   "screen.radminlinker.settings.position_managed": "由 LanWorlds 管理",
   "screen.radminlinker.settings.position_managed_description": "宜前往 LanWorlds → 設 → Radmin 鈕所變更。",
   "category.radminlan": "Radmin Linker",

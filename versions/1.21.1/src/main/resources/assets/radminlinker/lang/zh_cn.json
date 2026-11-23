@@ -1,11 +1,11 @@
 {
-  "screen.radminlinker.alias_reconnect": "昵称已保存，下次连接时更新。",
+  "screen.radminlinker.alias_reconnect": "昵称已保存，联网时同步。",
   "screen.radminlinker.settings.animate_label": "界面动画",
   "screen.radminlinker.settings.animate_description": "启用菜单展开和分页滑动效果。",
   "screen.radminlinker.settings.animation_ms": "动画时长（毫秒）",
   "screen.radminlinker.settings.animation_ms_description": "可输入 50 至 1000。默认 180 毫秒。",
   "screen.radminlinker.settings.alias_suffix": "内置核心昵称后缀",
-  "screen.radminlinker.settings.alias_suffix_description": "重新连接后生效。其他 Radmin 用户可看到模组标记。",
+  "screen.radminlinker.settings.alias_suffix_description": "其他 Radmin 用户可看到模组标记。联网时同步。",
   "screen.radminlinker.settings.position_managed": "由 LanWorlds 管理",
   "screen.radminlinker.settings.position_managed_description": "请到 LanWorlds → 设置 → Radmin 按钮位置更改。",
   "category.radminlan": "Radmin Linker",

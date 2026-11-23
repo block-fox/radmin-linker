@@ -1,11 +1,11 @@
 {
-  "screen.radminlinker.alias_reconnect": "ニックネームが保存されました。再接続時に適用されます。",
+  "screen.radminlinker.alias_reconnect": "ニックネームを保存しました。接続中に同期されます。",
   "screen.radminlinker.settings.animate_label": "インターフェースアニメーション",
   "screen.radminlinker.settings.animate_description": "メニューとページ遷移をアニメーション化します。",
   "screen.radminlinker.settings.animation_ms": "アニメーションの長さ (ミリ秒)",
   "screen.radminlinker.settings.animation_ms_description": "50 ～ 1000 を入力します。デフォルトは 180 ミリ秒です。",
   "screen.radminlinker.settings.alias_suffix": "埋め込みコア名のサフィックス",
-  "screen.radminlinker.settings.alias_suffix_description": "再接続時に適用されます。他の Radmin ユーザーには mod ラベルが表示されます。",
+  "screen.radminlinker.settings.alias_suffix_description": "他の Radmin ユーザーには MOD のマークが表示されます。変更は接続中に同期されます。",
   "screen.radminlinker.settings.position_managed": "LanWorldsによって管理されています",
   "screen.radminlinker.settings.position_managed_description": "LanWorlds → 設定 → Radmin ボタンの位置でこれを変更します。",
   "category.radminlan": "ラドミンリンカー",

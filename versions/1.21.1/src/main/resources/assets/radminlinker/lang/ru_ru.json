@@ -1,11 +1,11 @@
 {
-  "screen.radminlinker.alias_reconnect": "Никнейм сохранен. Применяется при повторном подключении.",
+  "screen.radminlinker.alias_reconnect": "Никнейм сохранён. Синхронизируется при наличии подключения.",
   "screen.radminlinker.settings.animate_label": "Анимация интерфейса",
   "screen.radminlinker.settings.animate_description": "Анимируйте меню и переходы между страницами.",
   "screen.radminlinker.settings.animation_ms": "Длительность анимации (мс)",
   "screen.radminlinker.settings.animation_ms_description": "Введите от 50 до 1000. Значение по умолчанию — 180 мс.",
   "screen.radminlinker.settings.alias_suffix": "Встроенный суффикс имени ядра",
-  "screen.radminlinker.settings.alias_suffix_description": "Применяется при повторном подключении. Другие пользователи Radmin видят метку мода.",
+  "screen.radminlinker.settings.alias_suffix_description": "Другие пользователи Radmin видят метку мода. Изменения синхронизируются при наличии подключения.",
   "screen.radminlinker.settings.position_managed": "Под управлением LanWorlds",
   "screen.radminlinker.settings.position_managed_description": "Измените это в LanWorlds → Настройки → Положение кнопки Radmin.",
   "category.radminlan": "Радмин Линкер",

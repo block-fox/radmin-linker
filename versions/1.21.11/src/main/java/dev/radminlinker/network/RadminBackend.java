@@ -26,10 +26,12 @@ public interface RadminBackend extends AutoCloseable {
     default boolean supportsWrite() { return false; }
     record LanRoom(String motd, String host, int port) {}
     default List<LanRoom> lanRooms() { return List.of(); }
+    default void setPublishedRoom(int port, String motd) {}
     default java.util.Map.Entry<java.net.InetSocketAddress, AutoCloseable> routeStatus(java.net.InetSocketAddress destination) {
         return java.util.Map.entry(destination, () -> {});
     }
     default void prepareLocalIdentity(String playerName, boolean chinese) {}
+    default void refreshLocalIdentity() {}
     default boolean aliasAppliesOnReconnect() { return false; }
     default boolean supportsAliasChanges() { return true; }
     default boolean supportsMemberRemoval() { return true; }

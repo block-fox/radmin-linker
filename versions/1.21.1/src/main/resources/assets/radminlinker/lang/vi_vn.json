@@ -1,11 +1,11 @@
 {
-  "screen.radminlinker.alias_reconnect": "Đã lưu biệt hiệu. Áp dụng khi kết nối lại.",
+  "screen.radminlinker.alias_reconnect": "Đã lưu biệt hiệu. Biệt hiệu được đồng bộ khi có kết nối.",
   "screen.radminlinker.settings.animate_label": "Giao diện hoạt hình",
   "screen.radminlinker.settings.animate_description": "Làm sinh động các menu và chuyển tiếp trang.",
   "screen.radminlinker.settings.animation_ms": "Thời lượng hoạt ảnh (ms)",
   "screen.radminlinker.settings.animation_ms_description": "Nhập 50 đến 1000. Mặc định là 180 ms.",
   "screen.radminlinker.settings.alias_suffix": "Hậu tố tên lõi được nhúng",
-  "screen.radminlinker.settings.alias_suffix_description": "Áp dụng khi kết nối lại. Những người dùng Radmin khác nhìn thấy nhãn mod.",
+  "screen.radminlinker.settings.alias_suffix_description": "Những người dùng Radmin khác nhìn thấy nhãn mod. Thay đổi được đồng bộ khi có kết nối.",
   "screen.radminlinker.settings.position_managed": "Được quản lý bởi LanWorlds",
   "screen.radminlinker.settings.position_managed_description": "Thay đổi điều này trong LanWorlds → Cài đặt → Vị trí nút Radmin.",
   "category.radminlan": "Trình liên kết Radmin",
