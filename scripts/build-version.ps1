@@ -46,8 +46,8 @@ try {
     New-Item -ItemType Directory -Force -Path $output | Out-Null
     $flavor = if ([string]::IsNullOrWhiteSpace($env:RADMIN_CORE_JAR)) { '' } else { '-core' }
     foreach ($classifier in @('', '-sources')) {
-        $sourceJar = Join-Path $projectDir "build/libs/radminlan-$modVersion$classifier.jar"
-        $destination = Join-Path $output "radminlan-$modVersion-$MinecraftVersion$flavor$classifier.jar"
+        $sourceJar = Join-Path $projectDir "build/libs/radminlinker-$modVersion$classifier.jar"
+        $destination = Join-Path $output "radminlinker-$modVersion-$MinecraftVersion$flavor$classifier.jar"
         Copy-Item -LiteralPath $sourceJar -Destination $destination -Force
         Write-Output $destination
     }

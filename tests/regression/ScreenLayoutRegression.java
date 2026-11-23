@@ -1,5 +1,5 @@
-import dev.radminlan.ui.RadminListLayout;
-import dev.radminlan.ui.RadminListPreferences.ViewMode;
+import dev.radminlinker.ui.RadminListLayout;
+import dev.radminlinker.ui.RadminListPreferences.ViewMode;
 
 /** Exercises the same geometry helpers used by the screen without opening Minecraft. */
 public final class ScreenLayoutRegression {

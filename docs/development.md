@@ -1,10 +1,10 @@
-# RadminLAN 开发导览
+# Radmin Linker 开发导览
 
 当前开发版本为 0.3.0，目标是 Minecraft 内的 Radmin VPN 网络和用户管理。局域网房间发现、查询和房间屏蔽由独立的 LanWorlds 模组负责。
 
 ## 源码与版本
 
-- `src/main/java/dev/radminlan/`：26.3 和 26.2 共用源码，JDK 25。
+- `src/main/java/dev/radminlinker/`：26.3 和 26.2 共用源码，JDK 25。
 - `versions/1.21.11/src/main/`：1.21.11 独立源码和资源，JDK 21。
 - `versions/<版本>/gradle.properties`：各版本依赖与打包配置。
 - `tests/regression/`：三个版本共用的回归程序；通过 Gradle 初始化脚本加载。
@@ -15,7 +15,7 @@
 
 | 模块 | 职责 |
 | --- | --- |
-| `RadminLanClient` | 客户端初始化、后台刷新、共享快照和退出清理 |
+| `RadminLinkerClient` | 客户端初始化、后台刷新、共享快照和退出清理 |
 | `network/RadminBackend` | 快照、网络和成员操作的异步接口 |
 | `network/PipeRadminBackend` | Windows 控制管道读写、状态确认和成员延迟订阅 |
 | `network/WindowsCliBackend` | 配置的 CLI 读写回退 |

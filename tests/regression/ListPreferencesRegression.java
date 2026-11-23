@@ -1,5 +1,5 @@
-import dev.radminlan.network.RadminBackend;
-import dev.radminlan.ui.RadminListPreferences;
+import dev.radminlinker.network.RadminBackend;
+import dev.radminlinker.ui.RadminListPreferences;
 
 import java.util.ArrayList;
 import java.util.Arrays;

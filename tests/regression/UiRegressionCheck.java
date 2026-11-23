@@ -1,9 +1,9 @@
 import com.google.gson.JsonParser;
-import dev.radminlan.config.RadminConfig;
-import dev.radminlan.input.MouseButtons;
-import dev.radminlan.network.RadminBackend;
-import dev.radminlan.ui.RadminSettingsPanel;
-import dev.radminlan.ui.RadminScreen;
+import dev.radminlinker.config.RadminConfig;
+import dev.radminlinker.input.MouseButtons;
+import dev.radminlinker.network.RadminBackend;
+import dev.radminlinker.ui.RadminSettingsPanel;
+import dev.radminlinker.ui.RadminScreen;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.SharedConstants;
 import net.minecraft.client.gui.components.Button;
@@ -67,7 +67,7 @@ class UiRegressionCheck {
         Method setGameDir = loader.getClass().getDeclaredMethod("setGameDir", Path.class);
         setGameDir.setAccessible(true);
         setGameDir.invoke(loader, isolatedGameDir);
-        Path configFile = loader.getConfigDir().resolve("radminlan.json");
+        Path configFile = loader.getConfigDir().resolve("radminlinker.json");
         require(configFile.startsWith(workDir), "config fixture stays inside the temporary regression directory");
 
         Files.writeString(configFile, "{\"enableCli\":false,\"queryTimeoutMs\":1700}");

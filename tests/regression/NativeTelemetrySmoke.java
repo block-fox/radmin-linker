@@ -1,6 +1,6 @@
-import dev.radminlan.config.RadminConfig;
-import dev.radminlan.network.PipeRadminBackend;
-import dev.radminlan.network.RadminBackend;
+import dev.radminlinker.config.RadminConfig;
+import dev.radminlinker.network.PipeRadminBackend;
+import dev.radminlinker.network.RadminBackend;
 import net.fabricmc.loader.api.FabricLoader;
 
 import java.lang.reflect.Method;

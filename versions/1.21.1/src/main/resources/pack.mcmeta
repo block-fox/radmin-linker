@@ -1,0 +1,23 @@
+{
+  "language": {
+    "zh_mo": {
+      "name": "繁體中文",
+      "region": "澳門",
+      "bidirectional": false
+    },
+    "zh_sg": {
+      "name": "繁體中文",
+      "region": "新加坡",
+      "bidirectional": false
+    },
+    "zh_my": {
+      "name": "繁體中文",
+      "region": "馬來西亞",
+      "bidirectional": false
+    }
+  },
+  "pack": {
+    "description": "Radmin Linker",
+    "pack_format": 34
+  }
+}

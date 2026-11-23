@@ -1,30 +1,31 @@
 {
   "schemaVersion": 1,
-  "id": "radminlan",
+  "id": "radminlinker",
+  "breaks": { "radminlan": "*" },
   "version": "${version}",
-  "name": "RadminLAN",
+  "name": "Radmin Linker",
   "description": "Manage Radmin VPN networks and users from inside Minecraft. Install LanWorlds for optional LAN room integration.",
   "authors": [
     "flexfox0424"
   ],
   "contact": {
-    "homepage": "https://github.com/block-fox/radminlan",
-    "sources": "https://github.com/block-fox/radminlan",
-    "issues": "https://github.com/block-fox/radminlan/issues"
+    "homepage": "https://github.com/block-fox/radmin-linker",
+    "sources": "https://github.com/block-fox/radmin-linker",
+    "issues": "https://github.com/block-fox/radmin-linker/issues"
   },
   "license": "MIT",
-  "icon": "assets/radminlan/icon.png",
+  "icon": "assets/radminlinker/icon.png",
   "environment": "client",
   "entrypoints": {
     "client": [
-      "dev.radminlan.RadminLanClient"
+      "dev.radminlinker.RadminLinkerClient"
     ],
     "modmenu": [
-      "dev.radminlan.compat.ModMenuEntrypoint"
+      "dev.radminlinker.compat.ModMenuEntrypoint"
     ]
   },
   "mixins": [
-    "radminlan.mixins.json"
+    "radminlinker.mixins.json"
   ],
   "depends": {
     "fabricloader": ">=0.19.5",

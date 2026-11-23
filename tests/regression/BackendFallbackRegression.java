@@ -1,8 +1,8 @@
-import dev.radminlan.config.RadminConfig;
-import dev.radminlan.network.RadminBackend;
-import dev.radminlan.network.RadminBackends;
-import dev.radminlan.network.RadminCoreProvider;
-import dev.radminlan.network.WindowsCliBackend;
+import dev.radminlinker.config.RadminConfig;
+import dev.radminlinker.network.RadminBackend;
+import dev.radminlinker.network.RadminBackends;
+import dev.radminlinker.network.RadminCoreProvider;
+import dev.radminlinker.network.WindowsCliBackend;
 
 import java.lang.reflect.Constructor;
 import java.nio.file.Files;
@@ -35,17 +35,17 @@ public final class BackendFallbackRegression {
         // No Windows pipe or external CLI is allowed to participate in this test.
         config.pipeName = "";
         config.enableCli = false;
-        String windowsDiagnostic = windows ? "CLI integration disabled in config" : "screen.radminlan.core.windows_only";
+        String windowsDiagnostic = windows ? "CLI integration disabled in config" : "screen.radminlinker.core.windows_only";
         for (var mode : RadminConfig.ConnectionBackend.values()) {
             config.connectionBackend = mode;
             try (var backend = RadminBackends.create(config)) {
                 var snapshot = backend.snapshot().join();
                 if (embedded && mode != RadminConfig.ConnectionBackend.WINDOWS) {
-                    require("RadminLAN Core".equals(snapshot.transport()), "bundled core selected for " + mode);
+                    require("Radmin Linker Core".equals(snapshot.transport()), "bundled core selected for " + mode);
                 } else {
                     boolean useWindows = mode == RadminConfig.ConnectionBackend.WINDOWS
                             || mode == RadminConfig.ConnectionBackend.AUTO && windows;
-                    String message = useWindows ? windowsDiagnostic : "screen.radminlan.core.not_embedded";
+                    String message = useWindows ? windowsDiagnostic : "screen.radminlinker.core.not_embedded";
                     require(message.equals(snapshot.message()), "expected backend diagnostic for " + mode);
                 }
             }
@@ -254,7 +254,7 @@ public final class BackendFallbackRegression {
     }
 
     private static RadminBackend fallback(RadminBackend primary, RadminBackend secondary) throws Exception {
-        Class<?> type = Class.forName("dev.radminlan.network.FallbackRadminBackend");
+        Class<?> type = Class.forName("dev.radminlinker.network.FallbackRadminBackend");
         Constructor<?> constructor = type.getDeclaredConstructor(RadminBackend.class, RadminBackend.class);
         constructor.setAccessible(true);
         return (RadminBackend) constructor.newInstance(primary, secondary);

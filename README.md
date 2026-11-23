@@ -1,4 +1,6 @@
-# RadminLAN
+# Radmin Linker
+
+![Radmin Linker](docs/radmin-linker-cover.png)
 
 Fabric 客户端模组，在 Minecraft 内连接和管理 Radmin VPN。支持 Minecraft **26.3、26.2、1.21.11、1.21.1**。
 
@@ -6,11 +8,11 @@ Fabric 客户端模组，在 Minecraft 内连接和管理 Radmin VPN。支持 Mi
 
 ## 安装与联动
 
-- **只安装 RadminLAN**：使用网络、用户、已屏蔽用户和设置标签页。需要 Fabric API。传统安装包使用 Windows 上的官方服务。`-core.jar` 内置版可直接连接 Radmin，无需安装官方客户端，见 [核心使用与构建说明](docs/core-integration.md)。
+- **只安装 Radmin Linker**：使用网络、用户、已屏蔽用户和设置标签页。需要 Fabric API。传统安装包使用 Windows 上的官方服务。`-core.jar` 内置版可直接连接 Radmin，无需安装官方客户端，见 [核心使用与构建说明](docs/core-integration.md)。
 - **只安装 [LanWorlds](https://github.com/block-fox/LanWorlds)**：增强原版局域网房间列表，查看封面、MOTD、地址、人数、延迟并管理房间屏蔽，无需 Radmin VPN。
-- **同时安装**：RadminLAN 为 LanWorlds 中匹配到的 Radmin 用户提供额外信息，以及用户和网络属性操作。
+- **同时安装**：Radmin Linker 为 LanWorlds 中匹配到的 Radmin 用户提供额外信息，以及用户和网络属性操作。
 
-从 0.3.0 起，局域网房间功能移至独立仓库 LanWorlds。联动需要 RadminLAN **0.3.0 或更新版本**与 LanWorlds **0.1.0 或更新版本**，两个包必须对应相同的 Minecraft 版本。旧房间屏蔽规则和查询设置会在 LanWorlds 首次启动时从 `config/radminlan.json` 迁移，原文件保留。 同时安装 RadminLAN **0.3.1** 和 LanWorlds **0.2.0** 或更新版本时，可在 LanWorlds 设置中统一调整多人游戏页上的 Radmin 蓝色盾牌。
+Radmin Linker 1.0.1 是原 RadminLAN 的新版。升级前请移除旧 JAR。首次读取时会从 `config/radminlan.json` 迁移设置到 `config/radminlinker.json`。安装同一 Minecraft 版本的 LanWorlds 1.0.2 可启用房间联动。
 
 ## 功能
 
@@ -20,7 +22,7 @@ Fabric 客户端模组，在 Minecraft 内连接和管理 Radmin VPN。支持 Mi
 - 通过 Windows 控制管道读取服务、网络、用户与实际延迟，配置 CLI 后可回退查询。
 - 使用信号图标显示在线状态，仅悬停图标时显示详细提示。
 - 自动刷新开启时，服务推送的实际延迟和离在线事件每两游戏刻同步到界面；完整查询间隔用于更新网络和成员资料。尚未收到的延迟显示未知，旧测量值在 60 秒后过期。
-- 自动刷新开关和 1–60 秒刷新间隔；设置自动保存至 `config/radminlan.json`。
+- 自动刷新开关和 1–60 秒刷新间隔；设置自动保存至 `config/radminlinker.json`。
 - 列表、设置和属性页支持小窗口滚动裁剪；Mod Menu 提供配置入口。
 
 ## 开发

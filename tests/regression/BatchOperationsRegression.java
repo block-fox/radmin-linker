@@ -1,4 +1,4 @@
-import dev.radminlan.ui.RadminBatchOperations;
+import dev.radminlinker.ui.RadminBatchOperations;
 
 import java.util.ArrayList;
 import java.util.List;

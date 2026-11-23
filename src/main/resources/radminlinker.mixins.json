@@ -1,0 +1,12 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "dev.radminlinker.mixin",
+  "compatibilityLevel": "JAVA_25",
+  "client": [
+    "MultiplayerScreenMixin"${coreMixins}
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

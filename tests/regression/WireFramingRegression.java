@@ -1,4 +1,4 @@
-import dev.radminlan.network.RadminWire;
+import dev.radminlinker.network.RadminWire;
 
 import java.io.ByteArrayOutputStream;
 import java.nio.ByteBuffer;

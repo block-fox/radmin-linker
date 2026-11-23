@@ -1,6 +1,7 @@
-import dev.radminlan.network.RadminBackend;
-import dev.radminlan.network.RadminPeerTelemetry;
-import dev.radminlan.network.RadminSnapshotParser;
+import dev.radminlinker.network.RadminBackend;
+import dev.radminlinker.network.RadminPeerTelemetry;
+import dev.radminlinker.network.RadminSnapshotParser;
+import dev.radminlinker.ui.RadminListPreferences;
 
 import java.io.ByteArrayOutputStream;
 import java.nio.ByteBuffer;
@@ -30,7 +31,8 @@ class NetworkParsingRegression {
         require(Boolean.TRUE.equals(updated.networks().getFirst().admin()), "peer ping IDs never replace the local node ID");
 
         var offline = parse(join(initial, ping(100, 37), attributes(100, 0)));
-        require(!peer(offline, 100).online() && peer(offline, 100).latencyMs() == -1,
+        require(!peer(offline, 100).online() && peer(offline, 100).latencyMs() == -1
+                        && peer(offline, 100).connectionType().isBlank(),
                 "incremental node attributes invalidate a previous online sample");
 
         var telemetry = new RadminPeerTelemetry();
@@ -48,6 +50,7 @@ class NetworkParsingRegression {
         telemetry.clear();
         require(peer(telemetry.enrich(baseline), 100).latencyMs() == -1, "disconnect clears measurements");
         require(peer(baseline, 100).latencyMs() == -1, "telemetry never mutates an existing snapshot");
+        checkPublicMembershipDisabled();
         checkAttributeContexts();
         checkNotificationOrdering();
         checkSnapshotOrdering();
@@ -339,6 +342,25 @@ class NetworkParsingRegression {
         } catch (ReflectiveOperationException error) {
             throw new AssertionError("IPv4 validation regression failed", error);
         }
+    }
+
+    private static void checkPublicMembershipDisabled() {
+        var prefs = new RadminListPreferences();
+        prefs.excludeEnabled = true;
+        var enabled = parse(membershipSnapshot("Minecraft [中文 41]", 0x05)).networks().getFirst();
+        var disabled = parse(membershipSnapshot("Minecraft [中文 41]", 0x15)).networks().getFirst();
+        require(enabled.publicNetwork() && Boolean.TRUE.equals(enabled.enabled()), "normal public membership is enabled");
+        require(disabled.publicNetwork() && Boolean.FALSE.equals(disabled.enabled()), "public membership flag 0x10 means disabled");
+        require(enabled.guid().equals(disabled.guid()) && prefs.matchesNetwork(disabled, !disabled.enabled()),
+                "the same public membership is shown by the disabled-only filter even without members");
+        var privateNetwork = parse(membershipSnapshot("Private test", 0x00)).networks().getFirst();
+        require(!privateNetwork.publicNetwork() && Boolean.FALSE.equals(privateNetwork.enabled()),
+                "ordinary disabled network uses the existing enable flag");
+    }
+
+    private static byte[] membershipSnapshot(String name, int flags) {
+        byte[] network = container(0x23, string(0x06, name), field(0x09, 0x0D, new byte[16]), scalar(0xA3, flags));
+        return frame(scalar(0x01, 34), container(0x20, node(42), scalar(0x11, 1), container(0x21, network)));
     }
 
     private static RadminBackend.RadminSnapshot parse(byte[] bytes) {

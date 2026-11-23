@@ -1,0 +1,6 @@
+package dev.radminlinker.network;
+
+/** Loaded only in distributions that include the standalone VPN core. */
+public interface RadminCoreProvider {
+    RadminBackend create();
+}

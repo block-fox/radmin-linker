@@ -56,7 +56,7 @@ jar {
 }
 
 // Keep the Java 21 backend and configuration shared between the 1.21.x ports.
-sourceSets.main.java.srcDirs('../1.21.11/src/main/java/dev/radminlan/network',
-        '../1.21.11/src/main/java/dev/radminlan/config',
+sourceSets.main.java.srcDirs('../1.21.11/src/main/java/dev/radminlinker/network',
+        '../1.21.11/src/main/java/dev/radminlinker/config',
         'src/main/shared')
 apply from: '../../gradle/core-integration.gradle'

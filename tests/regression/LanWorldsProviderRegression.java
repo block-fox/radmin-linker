@@ -1,7 +1,7 @@
-import dev.radminlan.RadminLanClient;
-import dev.radminlan.compat.LanWorldsProvider;
-import dev.radminlan.network.RadminBackend;
-import dev.radminlan.network.RadminSnapshotParser;
+import dev.radminlinker.RadminLinkerClient;
+import dev.radminlinker.compat.LanWorldsProvider;
+import dev.radminlinker.network.RadminBackend;
+import dev.radminlinker.network.RadminSnapshotParser;
 import net.minecraft.locale.Language;
 import net.minecraft.network.chat.FormattedText;
 import net.minecraft.util.FormattedCharSequence;
@@ -23,7 +23,7 @@ public final class LanWorldsProviderRegression {
     private static final String IPV6 = "FD00:1234:ABCD::30";
 
     public static void check() throws Exception {
-        RadminBackend.RadminSnapshot originalSnapshot = RadminLanClient.cachedSnapshot();
+        RadminBackend.RadminSnapshot originalSnapshot = RadminLinkerClient.cachedSnapshot();
         Language originalLanguage = Language.getInstance();
         try {
             for (String locale : List.of("en_us", "zh_cn")) {
@@ -33,7 +33,7 @@ public final class LanWorldsProviderRegression {
                 checkParsedIpv6Matching();
             }
         } finally {
-            RadminLanClient.publishSnapshot(originalSnapshot);
+            RadminLinkerClient.publishSnapshot(originalSnapshot);
             Language.inject(originalLanguage);
         }
         System.out.println("LANWORLDS_PROVIDER_REGRESSION_OK locales=2 ipv4=true ipv6=true optional=true");
@@ -50,7 +50,7 @@ public final class LanWorldsProviderRegression {
                 new RadminBackend.Network("Alpha", "network-alpha", "", List.of(host, offline, unknown)),
                 new RadminBackend.Network("Beta", "network-beta", "", List.of(sameNode)));
 
-        RadminLanClient.publishSnapshot(snapshot(RadminBackend.ServiceState.READY, networks));
+        RadminLinkerClient.publishSnapshot(snapshot(RadminBackend.ServiceState.READY, networks));
         Map<String, Object> info = provider.apply(IPV4);
         require("Host".equals(info.get("name")), "READY snapshot exposes matching host: " + locale);
         require(IPV4.equals(info.get("virtualIp")) && IPV6.equals(info.get("virtualIpv6")),
@@ -79,8 +79,8 @@ public final class LanWorldsProviderRegression {
 
         List<?> actions = (List<?>) info.get("actions");
         require(actions.size() == 3, "One peer action and two distinct network actions are exposed");
-        String peerLabel = translations.get("screen.radminlan.peer_properties");
-        String networkLabel = translations.get("screen.radminlan.network_properties");
+        String peerLabel = translations.get("screen.radminlinker.peer_properties");
+        String networkLabel = translations.get("screen.radminlinker.network_properties");
         require(peerLabel != null && !peerLabel.isBlank() && networkLabel != null && !networkLabel.isBlank(),
                 "Both action translations exist in the actual " + locale + " resource");
         require(peerLabel.equals(action(actions, 0).get("label")), "User action uses its translated label");
@@ -91,7 +91,7 @@ public final class LanWorldsProviderRegression {
             Map<?, ?> action = action(actions, index);
             require(action.get("open") instanceof Consumer<?>, "Property action exposes the Consumer contract");
             require(action.get("label") instanceof String label && !label.isBlank()
-                            && !label.contains("screen.radminlan."),
+                            && !label.contains("screen.radminlinker."),
                     "No translation key leaks into an action label");
             expectImmutable(action::clear, "Action values are immutable");
         }
@@ -101,14 +101,14 @@ public final class LanWorldsProviderRegression {
         for (RadminBackend.ServiceState state : RadminBackend.ServiceState.values()) {
             if (state == RadminBackend.ServiceState.READY) continue;
             // Retain networks deliberately: readiness must gate all peer information.
-            RadminLanClient.publishSnapshot(snapshot(state, networks));
+            RadminLinkerClient.publishSnapshot(snapshot(state, networks));
             require(provider.apply(IPV4).isEmpty() && provider.apply(IPV6).isEmpty(),
                     "Non-READY state does not expose a previous peer: " + state);
         }
-        RadminLanClient.publishSnapshot(snapshot(RadminBackend.ServiceState.READY, List.of()));
+        RadminLinkerClient.publishSnapshot(snapshot(RadminBackend.ServiceState.READY, List.of()));
         require(provider.apply(IPV4).isEmpty(), "A new READY snapshot removes vanished peer matches");
         RadminBackend.Peer updated = peer("Host updated", IPV4, IPV6, "online", 81, true, NODE_ID, "Alpha");
-        RadminLanClient.publishSnapshot(snapshot(RadminBackend.ServiceState.READY,
+        RadminLinkerClient.publishSnapshot(snapshot(RadminBackend.ServiceState.READY,
                 List.of(new RadminBackend.Network("Alpha", "network-alpha", "", List.of(updated)))));
         Map<String, Object> refreshed = provider.apply(IPV4);
         require("Host updated".equals(refreshed.get("name")) && Long.valueOf(81).equals(refreshed.get("latencyMs")),
@@ -128,7 +128,7 @@ public final class LanWorldsProviderRegression {
         require(parsed.state() == RadminBackend.ServiceState.READY, "IPv6 wire fixture produces a READY snapshot");
         String expanded = parsed.networks().getFirst().peers().getFirst().virtualIpv6();
         require("fd00:1234:abcd:0:0:0:0:30".equals(expanded), "Actual snapshot parser emits expanded IPv6");
-        RadminLanClient.publishSnapshot(parsed);
+        RadminLinkerClient.publishSnapshot(parsed);
         LanWorldsProvider provider = new LanWorldsProvider();
         Map<String, Object> info = provider.apply(expanded);
         require("IPv6 host".equals(info.get("name")), "Parsed IPv6 profile is indexed");
@@ -143,7 +143,7 @@ public final class LanWorldsProviderRegression {
             require(provider.apply(query).isEmpty(), "Different or malformed host cannot alias a parsed peer: " + query);
         }
 
-        RadminLanClient.publishSnapshot(ipv6Snapshot(new byte[]{
+        RadminLinkerClient.publishSnapshot(ipv6Snapshot(new byte[]{
                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, (byte) 0xff, (byte) 0xff, 26, 10, 20, 30}));
         Map<String, Object> mapped = provider.apply("::ffff:1a0a:141e");
         require("IPv6 host".equals(mapped.get("name")), "Parser preserves an IPv4-mapped IPv6 profile");
@@ -183,7 +183,7 @@ public final class LanWorldsProviderRegression {
 
     private static Map<String, String> loadTranslations(String locale) throws Exception {
         Map<String, String> values = new HashMap<>();
-        try (InputStream stream = LanWorldsProviderRegression.class.getResourceAsStream("/assets/radminlan/lang/" + locale + ".json")) {
+        try (InputStream stream = LanWorldsProviderRegression.class.getResourceAsStream("/assets/radminlinker/lang/" + locale + ".json")) {
             require(stream != null, "Packaged language resource exists: " + locale);
             Language.loadFromJson(stream, values::put);
         }

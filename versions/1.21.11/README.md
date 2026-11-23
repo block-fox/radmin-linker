@@ -1,4 +1,4 @@
-# RadminLAN for Minecraft 1.21.11
+# Radmin Linker for Minecraft 1.21.11
 
 This is an isolated compatibility port. It has its own Gradle configuration and source tree so it can use the Java 21 and Fabric APIs required by Minecraft 1.21.11 without affecting the 26.x builds.
 
@@ -11,4 +11,4 @@ Build and run from the repository root with JDK 21:
 ./scripts/run-1.21.11.ps1
 ```
 
-Use `-JavaHome` to select a JDK or `-Online` to download missing dependencies. The release artifact is `build/radminlan-0.2.0-1.21.11.jar` in this version directory.
+Use `-JavaHome` to select a JDK or `-Online` to download missing dependencies. The release artifact is `build/radminlinker-0.2.0-1.21.11.jar` in this version directory.

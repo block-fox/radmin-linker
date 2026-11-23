@@ -18,12 +18,12 @@ allprojects {
             doLast {
                 def metadata = smokeMetadata.get().asFile
                 metadata.parentFile.mkdirs()
-                metadata.text = '''{"schemaVersion":1,"id":"radminlan_core_smoke","version":"1.0.0","environment":"client","entrypoints":{"client":["CoreRoutingMixinSmoke"]},"depends":{"radminlan":"*"}}'''
+                metadata.text = '''{"schemaVersion":1,"id":"radminlan_core_smoke","version":"1.0.0","environment":"client","entrypoints":{"client":["CoreRoutingMixinSmoke"]},"depends":{"radminlinker":"*"}}'''
             }
         }
         def smokeJar = tasks.register('jarCoreRoutingMixinSmoke', Jar) {
             dependsOn compileSmoke, metadataSmoke
-            archiveFileName = 'radminlan-core-mixin-smoke.jar'
+            archiveFileName = 'radminlinker-core-mixin-smoke.jar'
             destinationDirectory = layout.buildDirectory.dir('mixin-smoke')
             from smokeClasses
             from smokeMetadata
@@ -46,9 +46,9 @@ allprojects {
                 setArgs(clientArgs)
                 def official = project.findProperty('smokeOfficial') == 'true'
                 if (!official) {
-                    def config = new File(run, 'config/radminlan.json')
+                    def config = new File(run, 'config/radminlinker.json')
                     config.parentFile.mkdirs()
-                    config.text = groovy.json.JsonOutput.toJson([pipeName: '\\\\.\\pipe\\radminlan-smoke-' + UUID.randomUUID()])
+                    config.text = groovy.json.JsonOutput.toJson([pipeName: '\\\\.\\pipe\\radminlinker-smoke-' + UUID.randomUUID()])
                 }
                 systemProperty('radminlan.smokeOfficial', official.toString())
                 systemProperty('radminlan.smokeDirectory', run.absolutePath)

@@ -1,4 +1,4 @@
-# 在 Minecraft 使用 RadminLAN Core
+# 在 Minecraft 使用 Radmin Linker Core
 
 内置版安装包以 `-core.jar` 结尾。Windows 启动时会检查官方 Radmin VPN 的控制管道，能连接就使用官方服务和已有身份，否则使用内置核心。Linux 和 macOS 默认使用内置核心。也可以在 **Radmin → 设置 → VPN 后端** 中手动选择，重启游戏后生效。
 
@@ -11,7 +11,7 @@
 在私有核心仓库用 JDK 21 构建 CLI JAR，然后传入其绝对路径。以 26.3 为例：
 
 ```powershell
-$env:RADMIN_CORE_JAR = '<RadminLAN Core JAR 的绝对路径>'
+$env:RADMIN_CORE_JAR = '<Radmin Linker Core JAR 的绝对路径>'
 ./scripts/build-26.3.ps1 -JavaHome '<JDK 25 路径>'
 ```
 

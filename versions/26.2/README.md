@@ -1,4 +1,4 @@
-# RadminLAN for Minecraft 26.2
+# Radmin Linker for Minecraft 26.2
 
 当前版本：`0.2.0`。包含与 26.3 一致的界面、设置标签、查看方式、排序过滤、信号提示及房间属性优化。
 
@@ -23,7 +23,7 @@ powershell -ExecutionPolicy Bypass -File scripts/run-26.2.ps1
 powershell -ExecutionPolicy Bypass -File scripts/build-26.2.ps1
 ```
 
-构建输出：`versions/26.2/build/radminlan-0.2.0-26.2.jar`。
+构建输出：`versions/26.2/build/radminlinker-0.2.0-26.2.jar`。
 
 实机回归重点：网络和用户的右键菜单、查看属性、复制字段、关闭属性页后再次右键，以及 LAN 房间右键详情和普通双击加入。
 
