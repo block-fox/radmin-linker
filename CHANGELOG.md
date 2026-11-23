@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.1
+
+- 修复与 ViaFabricPlus 同装时点击多人游戏无反应的问题。ViaFabricPlus 关闭旧版延迟探测时，内置核心会跳过该探测的路由挂钩。
+- 与 LanWorlds 0.2.0 同装时，Radmin 入口可在 LanWorlds 设置里统一调整外观与位置，图标沿用蓝色盾牌。
+
 ## 0.3.0 — 2026-11-23
 
 - Windows 自动模式优先连接启动时可用的官方服务，否则使用内置 RadminLAN Core。

@@ -56,6 +56,7 @@ public abstract class MultiplayerScreenMixin extends Screen {
     private void radminlan$addButton(CallbackInfo ci) {
         RadminConfig config = RadminLanClient.CONFIG;
         if (config == null) return;
+        if (Boolean.TRUE.equals(FabricLoader.getInstance().getObjectShare().get("lanworlds:manages-radmin-entry-v1"))) return;
         int x;
         int y;
         int buttonWidth = 128;

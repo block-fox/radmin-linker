@@ -14,12 +14,15 @@ import org.spongepowered.asm.mixin.injection.At;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 
-@Mixin(ServerStatusPinger.class)
+// ViaFabricPlus replaces the legacy method with an empty implementation.
+// Higher priority lets us inspect the merged method, and the call is optional
+// so a disabled legacy fallback never prevents the multiplayer menu from opening.
+@Mixin(value = ServerStatusPinger.class, priority = 1100)
 public abstract class CoreStatusPingerMixin {
     /** The old ping fallback bypasses Connection.connect and must also stay inside the VPN. */
     @WrapOperation(method = "pingLegacyServer", at = @At(value = "INVOKE",
                     target = "Lio/netty/bootstrap/Bootstrap;connect(Ljava/net/InetAddress;I)Lio/netty/channel/ChannelFuture;",
-                    remap = false))
+                    remap = false), require = 0, expect = 0)
     private ChannelFuture radminlan$connect(Bootstrap bootstrap, InetAddress host, int port,
             Operation<ChannelFuture> connect, @Local(argsOnly = true) InetSocketAddress destination) {
         return EmbeddedCoreBackend.connect(destination, routed -> routed == destination

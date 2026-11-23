@@ -4,6 +4,7 @@ import dev.radminlan.RadminLanClient;
 import dev.radminlan.network.RadminBackend;
 import dev.radminlan.ui.NetworkPropertiesScreen;
 import dev.radminlan.ui.PeerDetailsScreen;
+import dev.radminlan.ui.RadminScreen;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
@@ -23,16 +24,22 @@ import java.util.function.Function;
 public final class LanWorldsProvider implements Function<String, Map<String, Object>> {
     private static final String SHARE_KEY = "radminlan:room-provider-v1";
 
+    private static final String MANAGEMENT_KEY = "radminlan:open-management-v1";
+
     private RadminBackend.RadminSnapshot cachedSnapshot;
     private Map<String, Member> membersByHost = Map.of();
     private final Map<String, Map<String, Object>> cachedLookups = new HashMap<>();
 
     public static void register() {
-        FabricLoader.getInstance().getObjectShare().put(SHARE_KEY, new LanWorldsProvider());
+        var share = FabricLoader.getInstance().getObjectShare();
+        share.put(SHARE_KEY, new LanWorldsProvider());
+        share.put(MANAGEMENT_KEY, (Consumer<Screen>) parent -> Minecraft.getInstance().setScreen(new RadminScreen(parent)));
     }
 
     public static void unregister() {
-        FabricLoader.getInstance().getObjectShare().remove(SHARE_KEY);
+        var share = FabricLoader.getInstance().getObjectShare();
+        share.remove(SHARE_KEY);
+        share.remove(MANAGEMENT_KEY);
     }
 
     @Override

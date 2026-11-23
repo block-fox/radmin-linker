@@ -10,7 +10,7 @@ Fabric 客户端模组，在 Minecraft 内连接和管理 Radmin VPN。支持 Mi
 - **只安装 [LanWorlds](https://github.com/block-fox/LanWorlds)**：增强原版局域网房间列表，查看封面、MOTD、地址、人数、延迟并管理房间屏蔽，无需 Radmin VPN。
 - **同时安装**：RadminLAN 为 LanWorlds 中匹配到的 Radmin 用户提供额外信息，以及用户和网络属性操作。
 
-从 0.3.0 起，局域网房间功能移至独立仓库 LanWorlds。联动需要 RadminLAN **0.3.0 或更新版本**与 LanWorlds **0.1.0 或更新版本**，两个包必须对应相同的 Minecraft 版本。旧房间屏蔽规则和查询设置会在 LanWorlds 首次启动时从 `config/radminlan.json` 迁移，原文件保留。
+从 0.3.0 起，局域网房间功能移至独立仓库 LanWorlds。联动需要 RadminLAN **0.3.0 或更新版本**与 LanWorlds **0.1.0 或更新版本**，两个包必须对应相同的 Minecraft 版本。旧房间屏蔽规则和查询设置会在 LanWorlds 首次启动时从 `config/radminlan.json` 迁移，原文件保留。 同时安装 RadminLAN **0.3.1** 和 LanWorlds **0.2.0** 或更新版本时，可在 LanWorlds 设置中统一调整多人游戏页上的 Radmin 蓝色盾牌。
 
 ## 功能
 

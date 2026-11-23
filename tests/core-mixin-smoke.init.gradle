@@ -32,6 +32,9 @@ allprojects {
             dependsOn smokeJar
             workingDir smokeWork
             jvmArgs "-Dfabric.addMods=${smokeJar.get().archiveFile.get().asFile.absolutePath}"
+            def extraMods = project.findProperty('smokeExtraMods')
+            if (extraMods) jvmArgs "-Dfabric.addMods=${smokeJar.get().archiveFile.get().asFile.absolutePath}${File.pathSeparator}${extraMods}"
+            systemProperty('radminlan.smokeMultiplayer', (project.findProperty('smokeMultiplayer') ?: 'false').toString())
             doFirst {
                 smokeWork.mkdirs()
                 def run = java.nio.file.Files.createTempDirectory(smokeWork.toPath(), 'fresh-').toFile()

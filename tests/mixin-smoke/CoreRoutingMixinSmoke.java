@@ -1,12 +1,45 @@
 import dev.radminlan.RadminLanClient;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.client.gui.screens.multiplayer.JoinMultiplayerScreen;
 import net.fabricmc.loader.api.FabricLoader;
 
 /** Verifies the real Fabric mappings and the embedded provider without going online. */
 public final class CoreRoutingMixinSmoke implements ClientModInitializer {
     @Override public void onInitializeClient() {
-        ClientLifecycleEvents.CLIENT_STARTED.register(client -> checkDefaultBackend());
+        if (Boolean.getBoolean("radminlan.smokeMultiplayer")) {
+            ClientTickEvents.END_CLIENT_TICK.register(this::openMultiplayer);
+        } else {
+            ClientLifecycleEvents.CLIENT_STARTED.register(client -> checkDefaultBackend());
+        }
+    }
+
+    private void openMultiplayer(Minecraft client) {
+        try {
+            Screen current;
+            try {
+                var gui = client.getClass().getField("gui").get(client);
+                current = (Screen) gui.getClass().getMethod("screen").invoke(gui);
+            } catch (NoSuchMethodException olderClient) {
+                current = (Screen) client.getClass().getField("screen").get(client);
+            }
+            if (!(current instanceof TitleScreen title)) return;
+            var multiplayer = new JoinMultiplayerScreen(title);
+            java.lang.reflect.Method open;
+            try { open = client.getClass().getMethod("setScreenAndShow", Screen.class); }
+            catch (NoSuchMethodException olderClient) { open = client.getClass().getMethod("setScreen", Screen.class); }
+            open.invoke(client, multiplayer);
+            if (multiplayer.children().isEmpty()) throw new AssertionError("Multiplayer screen did not initialize");
+            System.out.println("RADMIN_MULTIPLAYER_SMOKE_OK ViaFabricPlus=" + FabricLoader.getInstance().isModLoaded("viafabricplus"));
+            checkDefaultBackend();
+        } catch (Throwable error) {
+            error.printStackTrace();
+            System.exit(1);
+        }
     }
 
     private void checkDefaultBackend() {
