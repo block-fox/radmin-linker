@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 public interface RadminBackend extends AutoCloseable {
+    enum MemberAction { APPROVE, GRANT_ADMIN, REVOKE_ADMIN }
     CompletableFuture<RadminSnapshot> snapshot();
     /** Latest local subscription view; never opens a pipe or starts a request. Null when unsupported. */
     default RadminSnapshot latestSnapshot() { return null; }
@@ -35,9 +36,13 @@ public interface RadminBackend extends AutoCloseable {
     default boolean aliasAppliesOnReconnect() { return false; }
     default boolean supportsAliasChanges() { return true; }
     default boolean supportsMemberRemoval() { return true; }
+    default boolean supportsMemberRoleChanges() { return false; }
     default CompletableFuture<Boolean> setNetworkEnabled(String guid, boolean enabled) { return CompletableFuture.completedFuture(false); }
     default CompletableFuture<Boolean> deleteNetwork(String guid) { return CompletableFuture.completedFuture(false); }
     default CompletableFuture<Boolean> kickPeer(String guid, long nodeId, String networkName) { return CompletableFuture.completedFuture(false); }
+    default CompletableFuture<Boolean> managePeer(String guid, long nodeId, String networkName, MemberAction action) {
+        return CompletableFuture.completedFuture(false);
+    }
     default CompletableFuture<Boolean> setAlias(String alias) { return CompletableFuture.completedFuture(false); }
     @Override void close();
 

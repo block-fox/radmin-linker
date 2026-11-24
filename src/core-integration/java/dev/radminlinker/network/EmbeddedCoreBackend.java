@@ -137,6 +137,15 @@ public final class EmbeddedCoreBackend implements RadminCoreProvider, RadminBack
                 && java.nio.file.Files.isRegularFile(java.nio.file.Path.of("/system/framework/framework.jar"));
     }
     @Override public boolean supportsMemberRemoval() { return supportsWrite(); }
+    @Override public boolean supportsMemberRoleChanges() { return supportsWrite(); }
+    @Override public CompletableFuture<Boolean> managePeer(String guid, long nodeId, String networkName, RadminBackend.MemberAction action) {
+        if (nodeId < 0 || guid == null || action == null) return CompletableFuture.completedFuture(false);
+        try {
+            return session.manageMember(CoreSession.MemberAction.valueOf(action.name()), guid, nodeId);
+        } catch (IllegalArgumentException invalid) {
+            return CompletableFuture.completedFuture(false);
+        }
+    }
     @Override public boolean supportsWrite() { return !closed && session.view().status().phase().equals("CONNECTED"); }
     @Override public CompletableFuture<Boolean> setPower(boolean enabled) {
         if (closed) return CompletableFuture.completedFuture(false);

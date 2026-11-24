@@ -630,7 +630,20 @@ public final class RadminScreen extends Screen {
         addContextButton(Component.translatable("screen.radminlinker.block_user"), x, y + 20, this::blockPeer);
         addContextButton(Component.translatable("screen.radminlinker.kick"), x, y + 40, this::kickPeer)
                 .active = RadminLinkerClient.BACKEND.supportsMemberRemoval();
-        addContextButton(Component.translatable("screen.radminlinker.cancel"), x, y + 60, () -> { clearContext(); refreshDynamicWidgets(); });
+        RadminBackend.MemberAction action = peerRoleAction();
+        int cancelY = y + 60;
+        if (action != null) {
+            String key = switch (action) {
+                case APPROVE -> "approve_member";
+                case GRANT_ADMIN -> "grant_admin";
+                case REVOKE_ADMIN -> "revoke_admin";
+            };
+            addContextButton(Component.translatable("screen.radminlinker." + key), x, cancelY,
+                    () -> changePeerRole(action));
+            cancelY += 20;
+        }
+        addContextButton(Component.translatable("screen.radminlinker.cancel"), x, cancelY,
+                () -> { clearContext(); refreshDynamicWidgets(); });
     }
 
     private Button addContextButton(Component label, int x, int y, Runnable action) {
@@ -834,6 +847,33 @@ public final class RadminScreen extends Screen {
             lastAction = Component.translatable(error == null && Boolean.TRUE.equals(ok) ? "screen.radminlinker.request_sent" : "screen.radminlinker.request_failed");
             refresh(false);
         }));
+    }
+
+    private RadminBackend.MemberAction peerRoleAction() {
+        var peer = contextPeer;
+        if (peer == null || peer.nodeId() <= 0 || peer.role() == null || !snapshot.canWrite()
+                || !RadminLinkerClient.BACKEND.supportsMemberRoleChanges()) return null;
+        var network = networkFor(peer);
+        if (network == null || !Boolean.TRUE.equals(network.admin()) || network.guid().isBlank()) return null;
+        if (peer.role() == 0L) return RadminBackend.MemberAction.APPROVE;
+        if (peer.role() == 1L) return RadminBackend.MemberAction.GRANT_ADMIN;
+        if (peer.role() == 2L) return RadminBackend.MemberAction.REVOKE_ADMIN;
+        return null;
+    }
+
+    private void changePeerRole(RadminBackend.MemberAction action) {
+        if (peerRoleAction() != action) return;
+        var peer = contextPeer;
+        var network = networkFor(peer);
+        clearContext();
+        refreshDynamicWidgets();
+        lastAction = Component.translatable("screen.radminlinker.request_pending");
+        RadminLinkerClient.BACKEND.managePeer(network.guid(), peer.nodeId(), network.name(), action)
+                .whenComplete((ok, error) -> runOnClient(() -> {
+                    lastAction = Component.translatable(error == null && Boolean.TRUE.equals(ok)
+                            ? "screen.radminlinker.request_sent" : "screen.radminlinker.request_failed");
+                    refresh(false);
+                }));
     }
 
     private void blockPeer() {
@@ -1461,7 +1501,8 @@ public final class RadminScreen extends Screen {
             case SETTINGS -> 0;
         };
         else if (actionMenu != ActionMenu.NONE) count = currentMenuItems.size();
-        else count = contextNetwork == null ? 4 : Boolean.TRUE.equals(contextNetwork.admin()) ? 6 : 5;
+        else if (contextNetwork == null) count = peerRoleAction() == null ? 4 : 5;
+        else count = Boolean.TRUE.equals(contextNetwork.admin()) ? 6 : 5;
         return 27 + count * 20;
     }
     private String truncate(String value, int maxWidth) {
