@@ -86,6 +86,8 @@
   "screen.radminlinker.properties": "查看属性",
   "screen.radminlinker.block_user": "屏蔽用户",
   "screen.radminlinker.kick": "移除成员",
+  "screen.radminlinker.ping_peer": "测量延迟",
+  "screen.radminlinker.ping_unavailable": "已建立的对端通道未返回结果",
   "screen.radminlinker.approve_member": "批准加入",
   "screen.radminlinker.grant_admin": "授予管理员权限",
   "screen.radminlinker.revoke_admin": "撤销管理员权限",

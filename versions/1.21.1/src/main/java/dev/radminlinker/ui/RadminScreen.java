@@ -602,6 +602,11 @@ public final class RadminScreen extends Screen {
                     () -> changePeerRole(action));
             cancelY += 20;
         }
+        if (canPingContextPeer()) {
+            addContextButton(Component.translatable("screen.radminlinker.ping_peer"), x, cancelY,
+                    this::pingContextPeer);
+            cancelY += 20;
+        }
         addContextButton(Component.translatable("screen.radminlinker.cancel"), x, cancelY,
                 () -> { clearContext(); refreshDynamicWidgets(); });
     }
@@ -805,6 +810,25 @@ public final class RadminScreen extends Screen {
         lastAction = Component.translatable("screen.radminlinker.request_pending");
         RadminLinkerClient.BACKEND.kickPeer(network.guid(), peer.nodeId(), network.name()).whenComplete((ok, error) -> runOnClient(() -> {
             lastAction = Component.translatable(error == null && Boolean.TRUE.equals(ok) ? "screen.radminlinker.request_sent" : "screen.radminlinker.request_failed");
+            refresh(false);
+        }));
+    }
+
+    private boolean canPingContextPeer() {
+        return contextPeer != null && contextPeer.nodeId() > 0 && contextPeer.online()
+                && snapshot.canWrite() && RadminLinkerClient.BACKEND.supportsPeerPing();
+    }
+
+    private void pingContextPeer() {
+        if (!canPingContextPeer()) return;
+        long nodeId = contextPeer.nodeId();
+        clearContext();
+        refreshDynamicWidgets();
+        lastAction = Component.translatable("screen.radminlinker.request_pending");
+        RadminLinkerClient.BACKEND.pingPeer(nodeId).whenComplete((latency, error) -> runOnClient(() -> {
+            lastAction = error == null && latency != null && latency >= 0
+                    ? Component.translatable("screen.radminlinker.latency", latency)
+                    : Component.translatable("screen.radminlinker.ping_unavailable");
             refresh(false);
         }));
     }
@@ -1463,7 +1487,7 @@ public final class RadminScreen extends Screen {
             case SETTINGS -> 0;
         };
         else if (actionMenu != ActionMenu.NONE) count = currentMenuItems.size();
-        else if (contextNetwork == null) count = peerRoleAction() == null ? 4 : 5;
+        else if (contextNetwork == null) count = 4 + (peerRoleAction() == null ? 0 : 1) + (canPingContextPeer() ? 1 : 0);
         else count = Boolean.TRUE.equals(contextNetwork.admin()) ? 6 : 5;
         return 27 + count * 20;
     }

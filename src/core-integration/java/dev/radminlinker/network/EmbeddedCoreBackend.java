@@ -138,6 +138,8 @@ public final class EmbeddedCoreBackend implements RadminCoreProvider, RadminBack
     }
     @Override public boolean supportsMemberRemoval() { return supportsWrite(); }
     @Override public boolean supportsMemberRoleChanges() { return supportsWrite(); }
+    @Override public boolean supportsPeerPing() { return supportsWrite(); }
+    @Override public CompletableFuture<Long> pingPeer(long nodeId) { return session.pingPeer(nodeId); }
     @Override public CompletableFuture<Boolean> managePeer(String guid, long nodeId, String networkName, RadminBackend.MemberAction action) {
         if (nodeId < 0 || guid == null || action == null) return CompletableFuture.completedFuture(false);
         try {

@@ -37,6 +37,8 @@ public interface RadminBackend extends AutoCloseable {
     default boolean supportsAliasChanges() { return true; }
     default boolean supportsMemberRemoval() { return true; }
     default boolean supportsMemberRoleChanges() { return false; }
+    default boolean supportsPeerPing() { return false; }
+    default CompletableFuture<Long> pingPeer(long nodeId) { return CompletableFuture.completedFuture(-1L); }
     default CompletableFuture<Boolean> setNetworkEnabled(String guid, boolean enabled) { return CompletableFuture.completedFuture(false); }
     default CompletableFuture<Boolean> deleteNetwork(String guid) { return CompletableFuture.completedFuture(false); }
     default CompletableFuture<Boolean> kickPeer(String guid, long nodeId, String networkName) { return CompletableFuture.completedFuture(false); }
