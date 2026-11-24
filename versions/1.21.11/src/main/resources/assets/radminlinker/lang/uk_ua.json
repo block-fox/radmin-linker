@@ -114,6 +114,7 @@
   "screen.radminlinker.property.members": "Кількість учасників",
   "screen.radminlinker.property.network_state": "Стан мережі",
   "screen.radminlinker.property.guid": "GUID мережі",
+  "screen.radminlinker.property.direct_peer_ip": "IP прямого з’єднання",
   "screen.radminlinker.property.node_ip": "IP-адреса підключення вузла (не справжня IP-адреса пристрою)",
   "screen.radminlinker.property.version": "Клієнтська версія",
   "screen.radminlinker.property.allow_passwordless": "Дозволити приєднання без пароля",

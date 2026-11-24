@@ -69,7 +69,10 @@ public final class PeerDetailsScreen extends Screen {
         drawProperty(graphics, x, y, panelWidth, "id", cachedIdentityValues[2], 2, 0xFFE6EAF0);
         drawProperty(graphics, x, y, panelWidth, "rid", cachedIdentityValues[3], 3, 0xFFB0BAC4);
         drawProperty(graphics, x, y, panelWidth, "ipv6", cachedIdentityValues[4], 4, 0xFFE6EAF0);
-        drawProperty(graphics, x, y, panelWidth, "node_ip", cachedIdentityValues[5], 5, 0xFFE6EAF0);
+        boolean showDirectAddress = showsDirectPeerAddress();
+        String address = showDirectAddress ? directPeerAddress() : cachedIdentityValues[5];
+        drawProperty(graphics, x, y, panelWidth, showDirectAddress ? "direct_peer_ip" : "node_ip",
+                emptyDash(address), 5, 0xFFE6EAF0);
 
         y += identityHeight + gap;
         drawGroup(graphics, x, y, panelWidth, networkHeight, Component.translatable("screen.radminlinker.network_status"));
@@ -137,7 +140,9 @@ public final class PeerDetailsScreen extends Screen {
         ensureCachedValues();
         int panelWidth = Math.min(620, width - 32);
         for (int row = 0; row < cachedIdentityCopyValues.length; row++) {
-            if (hitRow(x, y + 23 + row * 13, panelWidth, mouseX, mouseY)) return cachedIdentityCopyValues[row];
+            if (hitRow(x, y + 23 + row * 13, panelWidth, mouseX, mouseY)) {
+                return row == 5 && showsDirectPeerAddress() ? directPeerAddress() : cachedIdentityCopyValues[row];
+            }
         }
         y += 102 + 8;
         for (int row = 0; row < cachedNetworkCopyValues.length; row++) {
@@ -152,6 +157,16 @@ public final class PeerDetailsScreen extends Screen {
 
     private static boolean hitRow(int x, int rowY, int panelWidth, int mouseX, int mouseY) {
         return mouseX >= x + 8 && mouseX <= x + panelWidth - 8 && mouseY >= rowY - 2 && mouseY <= rowY + 10;
+    }
+
+    private boolean showsDirectPeerAddress() {
+        var backend = RadminLinkerClient.BACKEND;
+        return backend != null && backend.showsDirectPeerAddress();
+    }
+
+    private String directPeerAddress() {
+        long nodeId = displayedPeer.nodeId();
+        return nodeId == -1L ? "" : RadminLinkerClient.BACKEND.directPeerAddress(nodeId);
     }
 
     private void ensureCachedValues() {

@@ -114,6 +114,7 @@
   "screen.radminlinker.property.members": "Member count",
   "screen.radminlinker.property.network_state": "Network status",
   "screen.radminlinker.property.guid": "Network GUID",
+  "screen.radminlinker.property.direct_peer_ip": "Direct peer IP",
   "screen.radminlinker.property.node_ip": "Node connection IP (not the device's real IP)",
   "screen.radminlinker.property.version": "Client version",
   "screen.radminlinker.property.allow_passwordless": "Allow joining without a password",
@@ -214,6 +215,7 @@
   "screen.radminlinker.settings.backend.windows": "Windows service",
   "screen.radminlinker.core.not_embedded": "This JAR does not include Radmin Linker Core.",
   "screen.radminlinker.core.windows_only": "The official service backend requires Windows.",
+  "screen.radminlinker.core.identity_migration_failed": "Could not migrate the saved Radmin identity. Check that the old profile is accessible and not in use.",
   "screen.radminlinker.core.connecting": "Connecting to Radmin…",
   "screen.radminlinker.core.offline": "Core disconnected. Use the power button to connect."
 }

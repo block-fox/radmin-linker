@@ -5,6 +5,7 @@ import dev.radminlan.core.CoreSession;
 import dev.radminlan.core.TcpForwarder;
 import dev.radminlan.core.CoreSession.Action;
 import io.netty.channel.ChannelFuture;
+import net.fabricmc.loader.api.FabricLoader;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -18,10 +19,9 @@ import java.util.function.Function;
 public final class EmbeddedCoreBackend implements RadminCoreProvider, RadminBackend {
     private static final int MAX_DEVICE_NAME_LENGTH = 64;
     private static final System.Logger LOGGER = System.getLogger("Radmin Linker Core");
-    private final CoreSession session = new CoreSession(CoreSession.defaultProfile(), List.of(),
-            message -> LOGGER.log(System.Logger.Level.DEBUG, message));
-    private final TcpForwarder forwarder = new TcpForwarder(session);
     private final boolean android = isAndroid();
+    private final CoreSession session = createSession(android);
+    private final TcpForwarder forwarder = new TcpForwarder(session);
     private volatile boolean closed;
     private String coreName = "Radmin Linker";
     private boolean chinese;
@@ -129,6 +129,13 @@ public final class EmbeddedCoreBackend implements RadminCoreProvider, RadminBack
         statusIdentity = null;
     }
 
+    private static CoreSession createSession(boolean android) {
+        var defaultProfile = CoreSession.defaultProfile();
+        var profile = android ? FabricLoader.getInstance().getConfigDir().resolve("radminlinker-core") : defaultProfile;
+        return new CoreSession(profile, android ? defaultProfile : null, List.of(),
+                message -> LOGGER.log(System.Logger.Level.DEBUG, message));
+    }
+
     private static boolean isAndroid() {
         if (System.getProperty("os.name", "").equalsIgnoreCase("Android")
                 || System.getProperty("java.runtime.name", "").equalsIgnoreCase("Android Runtime")) return true;
@@ -139,6 +146,8 @@ public final class EmbeddedCoreBackend implements RadminCoreProvider, RadminBack
     @Override public boolean supportsMemberRemoval() { return supportsWrite(); }
     @Override public boolean supportsMemberRoleChanges() { return supportsWrite(); }
     @Override public boolean supportsPeerPing() { return supportsWrite(); }
+    @Override public boolean showsDirectPeerAddress() { return true; }
+    @Override public String directPeerAddress(long nodeId) { return session.directPeerAddress(nodeId); }
     @Override public CompletableFuture<Long> pingPeer(long nodeId) { return session.pingPeer(nodeId); }
     @Override public CompletableFuture<Boolean> managePeer(String guid, long nodeId, String networkName, RadminBackend.MemberAction action) {
         if (nodeId < 0 || guid == null || action == null) return CompletableFuture.completedFuture(false);

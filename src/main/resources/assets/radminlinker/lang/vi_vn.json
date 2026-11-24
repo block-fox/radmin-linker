@@ -114,6 +114,7 @@
   "screen.radminlinker.property.members": "Số thành viên",
   "screen.radminlinker.property.network_state": "Trạng thái mạng",
   "screen.radminlinker.property.guid": "GUID mạng",
+  "screen.radminlinker.property.direct_peer_ip": "IP của thiết bị kết nối trực tiếp",
   "screen.radminlinker.property.node_ip": "IP kết nối nút (không phải IP thực của thiết bị)",
   "screen.radminlinker.property.version": "Phiên bản máy khách",
   "screen.radminlinker.property.allow_passwordless": "Cho phép tham gia mà không cần mật khẩu",

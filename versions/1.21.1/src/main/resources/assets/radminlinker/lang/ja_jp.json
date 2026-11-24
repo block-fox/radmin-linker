@@ -114,6 +114,7 @@
   "screen.radminlinker.property.members": "会員数",
   "screen.radminlinker.property.network_state": "ネットワークステータス",
   "screen.radminlinker.property.guid": "ネットワークGUID",
+  "screen.radminlinker.property.direct_peer_ip": "直接接続先の IP",
   "screen.radminlinker.property.node_ip": "ノード接続 IP (デバイスの実際の IP ではありません)",
   "screen.radminlinker.property.version": "クライアントのバージョン",
   "screen.radminlinker.property.allow_passwordless": "パスワードなしでの参加を許可する",

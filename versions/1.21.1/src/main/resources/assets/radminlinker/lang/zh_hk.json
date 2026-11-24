@@ -114,6 +114,7 @@
   "screen.radminlinker.property.members": "成員數量",
   "screen.radminlinker.property.network_state": "網路狀態",
   "screen.radminlinker.property.guid": "網路 GUID",
+  "screen.radminlinker.property.direct_peer_ip": "直連對端 IP",
   "screen.radminlinker.property.node_ip": "節點連接 IP（非設備真實 IP）",
   "screen.radminlinker.property.version": "客戶端版本",
   "screen.radminlinker.property.allow_passwordless": "允許無密碼加入",

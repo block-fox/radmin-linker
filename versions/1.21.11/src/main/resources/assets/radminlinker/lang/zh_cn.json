@@ -114,6 +114,7 @@
   "screen.radminlinker.property.members": "成员数量",
   "screen.radminlinker.property.network_state": "网络状态",
   "screen.radminlinker.property.guid": "网络 GUID",
+  "screen.radminlinker.property.direct_peer_ip": "直连对端 IP",
   "screen.radminlinker.property.node_ip": "节点连接 IP（非设备真实 IP）",
   "screen.radminlinker.property.version": "客户端版本",
   "screen.radminlinker.property.allow_passwordless": "允许无密码加入",
@@ -214,6 +215,7 @@
   "screen.radminlinker.settings.backend.windows": "Windows 服务",
   "screen.radminlinker.core.not_embedded": "当前安装包未内置 Radmin Linker Core。",
   "screen.radminlinker.core.windows_only": "官方服务后端需要 Windows。",
+  "screen.radminlinker.core.identity_migration_failed": "无法迁移已保存的 Radmin 身份。请确认旧配置目录可读取，且未在其他客户端使用。",
   "screen.radminlinker.core.connecting": "正在连接 Radmin…",
   "screen.radminlinker.core.offline": "内置核心未连接。点击电源按钮连接。"
 }
